@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import SocialRecoveryConfig from "@/components/SocialRecoveryConfig";
 import WalletConnectButton from "@/components/WalletConnectButton";
-import { Bell, BellOff, Check, X, Key, Wallet, Shield, Copy, Eye, EyeOff, Globe, Moon, Sun, TimerOff } from "lucide-react";
+import { Bell, BellOff, Check, X, Key, Wallet, Shield, Copy, Eye, EyeOff, Globe, Moon, Sun, TimerOff, Lock, Download } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/hooks/useToast";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -17,6 +17,7 @@ import {
 import Skeleton from "@/components/ui/Skeleton";
 import TrustlineManager from "@/components/wallet/TrustlineManager";
 import { useTheme } from "@/components/theme-provider";
+import { encryptWithPassword } from "@/app/lib/cryptoUtils";
 
 export default function SettingsPage() {
   const { showToast } = useToast();
@@ -38,6 +39,34 @@ export default function SettingsPage() {
   const [copiedKey, setCopiedKey] = useState(false);
   const [mnemonicCopied, setMnemonicCopied] = useState(false);
   const [mnemonicClipboardCountdown, setMnemonicClipboardCountdown] = useState(0);
+
+  // ── Encrypted export modal state ──────────────────────────────────────────
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportPassword, setExportPassword] = useState("");
+  const [exportPasswordConfirm, setExportPasswordConfirm] = useState("");
+  const [exportError, setExportError] = useState("");
+  const [exportLoading, setExportLoading] = useState(false);
+
+  // Auto-clear the key from view 15 seconds after reveal
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleRevealKey = () => {
+    setShowPrivateKey(true);
+    if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+    revealTimerRef.current = setTimeout(() => {
+      setShowPrivateKey(false);
+      navigator.clipboard.writeText("").catch(() => {});
+    }, 15_000);
+  };
+  const handleHideKey = () => {
+    setShowPrivateKey(false);
+    if (revealTimerRef.current) {
+      clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = null;
+    }
+  };
+  useEffect(() => () => {
+    if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+  }, []);
 
   useEffect(() => {
     if (user?.walletNetwork && user.walletNetwork !== walletNetwork) {
@@ -127,6 +156,51 @@ export default function SettingsPage() {
     setCopiedKey(true);
     showToast("Secret key copied to clipboard", "success");
     setTimeout(() => setCopiedKey(false), 2000);
+  };
+
+  const handleEncryptedExport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setExportError("");
+
+    if (exportPassword.length < 8) {
+      setExportError("Password must be at least 8 characters.");
+      return;
+    }
+    if (exportPassword !== exportPasswordConfirm) {
+      setExportError("Passwords do not match.");
+      return;
+    }
+    if (!stellarSecret) return;
+
+    setExportLoading(true);
+    try {
+      const encrypted = await encryptWithPassword(stellarSecret, exportPassword);
+      const backup = {
+        _instructions:
+          "ClipCash encrypted wallet backup. Import via Settings → Advanced Wallet Mode → Import, or Recovery page → Encrypted Backup tab. Requires the password used during export.",
+        version: 1,
+        createdAt: new Date().toISOString(),
+        ciphertext: encrypted,
+      };
+      const blob = new Blob([JSON.stringify(backup, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "clipcash-wallet-backup.enc.json";
+      a.click();
+      URL.revokeObjectURL(url);
+
+      setExportModalOpen(false);
+      setExportPassword("");
+      setExportPasswordConfirm("");
+      showToast("Encrypted backup downloaded successfully.", "success");
+    } catch {
+      setExportError("Encryption failed. Please try again.");
+    } finally {
+      setExportLoading(false);
+    }
   };
 
   const mnemonicTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -469,7 +543,7 @@ export default function SettingsPage() {
                             </div>
                             <div className="flex gap-2 shrink-0 items-end flex-wrap md:flex-nowrap">
                               <button
-                                onClick={() => setShowPrivateKey(!showPrivateKey)}
+                                onClick={() => (showPrivateKey ? handleHideKey() : handleRevealKey())}
                                 className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-bold hover:text-brand hover:border-brand/30 transition-all flex items-center gap-1 cursor-pointer"
                               >
                                 {showPrivateKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -478,19 +552,15 @@ export default function SettingsPage() {
 
                               <button
                                 onClick={() => {
-                                  // minimal client-side enforcement; full flow implemented in a modal in follow-up PR if needed
-                                  if (!stellarSecret) return;
-                                  const ok1 = window.confirm("Warning: This is your raw Stellar Secret Key. Anyone with it controls your funds. Continue?");
-                                  if (!ok1) return;
-                                  const ok2 = window.confirm("Last chance: Click OK to download an encrypted backup. Your password is required.");
-                                  if (!ok2) return;
-                                  // encrypted download is handled by a future secure modal; for now, we block raw copy via this button
-                                  showToast("Encrypted export will be available in the next step.", "success");
+                                  setExportModalOpen(true);
+                                  setExportError("");
+                                  setExportPassword("");
+                                  setExportPasswordConfirm("");
                                 }}
                                 className="px-3 py-2 rounded-xl bg-brand text-black text-xs font-bold hover:bg-brand-hover transition-all flex items-center gap-1 cursor-pointer"
                                 disabled={!stellarSecret}
                               >
-                                <Key className="w-3.5 h-3.5" aria-hidden="true" />
+                                <Download className="w-3.5 h-3.5" aria-hidden="true" />
                                 Export (Encrypted)
                               </button>
 
@@ -636,5 +706,84 @@ export default function SettingsPage() {
             </>
           )}
         </div>
+
+      {/* ── Encrypted Export Modal ─────────────────────────────────────────── */}
+      {exportModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="export-modal-title"
+        >
+          <div className="w-full max-w-sm bg-[#080B0A] border border-white/10 rounded-2xl p-6 shadow-2xl relative">
+            <button
+              onClick={() => setExportModalOpen(false)}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-white transition-colors cursor-pointer"
+              aria-label="Close export modal"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand shrink-0">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 id="export-modal-title" className="font-bold text-white text-sm">Export Encrypted Backup</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Set a strong password to protect your secret key.</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleEncryptedExport} className="space-y-4">
+              <div className="space-y-1.5">
+                <label htmlFor="export-password" className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Encryption Password
+                </label>
+                <input
+                  id="export-password"
+                  type="password"
+                  placeholder="Min. 8 characters"
+                  value={exportPassword}
+                  onChange={(e) => setExportPassword(e.target.value)}
+                  className="w-full bg-input border border-white/5 text-white focus:border-brand/40 rounded-xl px-4 py-3 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-brand transition-colors"
+                  autoComplete="new-password"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="export-password-confirm" className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Confirm Password
+                </label>
+                <input
+                  id="export-password-confirm"
+                  type="password"
+                  placeholder="Re-enter password"
+                  value={exportPasswordConfirm}
+                  onChange={(e) => setExportPasswordConfirm(e.target.value)}
+                  className="w-full bg-input border border-white/5 text-white focus:border-brand/40 rounded-xl px-4 py-3 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-brand transition-colors"
+                  autoComplete="new-password"
+                />
+              </div>
+
+              {exportError && (
+                <p className="text-xs text-red-400 font-semibold">{exportError}</p>
+              )}
+
+              <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-3 text-[10px] text-yellow-300 leading-relaxed">
+                <strong>Important:</strong> If you lose this password, your backup cannot be decrypted. Store both the file and password safely offline.
+              </div>
+
+              <button
+                type="submit"
+                disabled={exportLoading || !exportPassword || !exportPasswordConfirm}
+                className="w-full py-3.5 rounded-xl bg-brand text-black text-xs font-extrabold hover:bg-brand-hover transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Download className="w-3.5 h-3.5" />
+                {exportLoading ? "Encrypting…" : "Download clipcash-wallet-backup.enc.json"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
   );
 }
