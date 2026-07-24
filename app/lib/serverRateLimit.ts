@@ -12,13 +12,105 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import Redis from "ioredis";
+import { logger } from "@/app/lib/logger";
 
 interface BucketEntry {
   count: number;
   resetAt: number;
 }
 
-const store = new Map<string, BucketEntry>();
+interface StorageAdapter {
+  get(key: string): Promise<string | null>;
+  incr(key: string): Promise<number>;
+  expire(key: string, seconds: number): Promise<number>;
+  del(key: string): Promise<number>;
+}
+
+class RedisStorageAdapter implements StorageAdapter {
+  constructor(private readonly client: Redis) {}
+
+  async get(key: string): Promise<string | null> {
+    return this.client.get(key);
+  }
+
+  async incr(key: string): Promise<number> {
+    return this.client.incr(key);
+  }
+
+  async expire(key: string, seconds: number): Promise<number> {
+    return this.client.expire(key, seconds);
+  }
+
+  async del(key: string): Promise<number> {
+    return this.client.del(key);
+  }
+}
+
+class InMemoryStorageAdapter implements StorageAdapter {
+  private readonly map = new Map<string, { count: number; resetAt: number }>();
+
+  async get(key: string): Promise<string | null> {
+    const entry = this.map.get(key);
+    if (!entry) return null;
+    const now = Date.now();
+    if (now >= entry.resetAt) {
+      this.map.delete(key);
+      return null;
+    }
+    return JSON.stringify(entry);
+  }
+
+  async incr(key: string): Promise<number> {
+    const entry = this.map.get(key);
+    if (!entry) {
+      this.map.set(key, { count: 1, resetAt: Date.now() + 60000 });
+      return 1;
+    }
+    entry.count++;
+    return entry.count;
+  }
+
+  async expire(key: string, seconds: number): Promise<number> {
+    const entry = this.map.get(key);
+    if (!entry) return 0;
+    entry.resetAt = Date.now() + seconds * 1000;
+    return 1;
+  }
+
+  async del(key: string): Promise<number> {
+    return this.map.delete(key) ? 1 : 0;
+  }
+}
+
+let adapter: StorageAdapter;
+
+function getAdapter(): StorageAdapter {
+  if (adapter) return adapter;
+
+  if (process.env.NODE_ENV === "test") {
+    adapter = new InMemoryStorageAdapter();
+    return adapter;
+  }
+
+  if (!process.env.REDIS_URL) {
+    adapter = new InMemoryStorageAdapter();
+    return adapter;
+  }
+
+  try {
+    const redis = new Redis(process.env.REDIS_URL);
+    adapter = new RedisStorageAdapter(redis);
+    return adapter;
+  } catch (error) {
+    logger.warn(
+      "[serverRateLimit] Failed to initialize Redis client, falling back to in-memory storage:",
+      error
+    );
+    adapter = new InMemoryStorageAdapter();
+    return adapter;
+  }
+}
 
 export interface RateLimitOptions {
   /** Maximum number of requests per window. Default: 60 */
@@ -37,26 +129,28 @@ export interface RateLimitOptions {
  *   // ... handler logic
  * }
  */
-export function applyRateLimit(
+export async function applyRateLimit(
   request: NextRequest,
   options: RateLimitOptions = {}
-): NextResponse | null {
+): Promise<NextResponse | null> {
   const { limit = 60, windowMs = 60_000 } = options;
 
   const key = getClientKey(request);
-  const now = Date.now();
+  const storage = getAdapter();
+  const windowSeconds = Math.ceil(windowMs / 1000);
 
-  let entry = store.get(key);
-  if (!entry || now >= entry.resetAt) {
-    entry = { count: 0, resetAt: now + windowMs };
-    store.set(key, entry);
+  // Use Redis atomic increment with TTL
+  const count = await storage.incr(key);
+  
+  // Set TTL on first request (when count is 1)
+  if (count === 1) {
+    await storage.expire(key, windowSeconds);
   }
 
-  entry.count++;
-  const remaining = Math.max(0, limit - entry.count);
+  const remaining = Math.max(0, limit - count);
 
-  if (entry.count > limit) {
-    const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
+  if (count > limit) {
+    const retryAfter = windowSeconds;
     return NextResponse.json(
       { error: "Too many requests" },
       {
@@ -79,20 +173,31 @@ export function applyRateLimit(
  * Returns rate-limit headers to include on a successful (non-429) response.
  * Call after applyRateLimit returns null to attach the info headers.
  */
-export function getRateLimitHeaders(
+export async function getRateLimitHeaders(
   request: NextRequest,
   options: RateLimitOptions = {}
-): Record<string, string> {
-  const { limit = 60, windowMs = 60_000 } = options;
+): Promise<Record<string, string>> {
+  const { limit = 60 } = options;
   const key = getClientKey(request);
-  const now = Date.now();
-  const entry = store.get(key);
-  if (!entry || now >= entry.resetAt) {
+  const storage = getAdapter();
+
+  const raw = await storage.get(key);
+  if (!raw) {
     return {
       "X-RateLimit-Limit": String(limit),
       "X-RateLimit-Remaining": String(limit),
     };
   }
+
+  const entry = JSON.parse(raw) as { count: number; resetAt: number };
+  const now = Date.now();
+  if (now >= entry.resetAt) {
+    return {
+      "X-RateLimit-Limit": String(limit),
+      "X-RateLimit-Remaining": String(limit),
+    };
+  }
+
   return {
     "X-RateLimit-Limit": String(limit),
     "X-RateLimit-Remaining": String(Math.max(0, limit - entry.count)),
@@ -109,6 +214,12 @@ function getClientKey(request: NextRequest): string {
 }
 
 /** Exposed for testing only — clears all buckets. */
-export function __resetRateLimitStore(): void {
-  store.clear();
+export async function __resetRateLimitStore(): Promise<void> {
+  const storage = getAdapter();
+  if (storage instanceof InMemoryStorageAdapter) {
+    (storage as any).map.clear();
+  } else {
+    // For Redis, we'd need to flush by pattern, but for now just warn
+    logger.warn("[serverRateLimit] Cannot reset Redis store in tests");
+  }
 }

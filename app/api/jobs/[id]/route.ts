@@ -21,7 +21,7 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const rateLimited = applyRateLimit(request, { limit: 120, windowMs: 60_000 });
+  const rateLimited = await applyRateLimit(request, { limit: 120, windowMs: 60_000 });
   if (rateLimited) return rateLimited;
 
   const { id: jobId } = await context.params;
