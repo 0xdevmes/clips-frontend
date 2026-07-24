@@ -59,10 +59,10 @@ describe("POST /api/upload — file count cap", () => {
   const { __resetRateLimitStore } = require("@/app/lib/serverRateLimit");
   const { jobStore } = require("@/app/api/jobs/shared/jobStore");
 
-  beforeEach(() => {
+  beforeEach(async () => {
     process.env.NEXTAUTH_URL = APP_ORIGIN;
     jobStore.clear();
-    __resetRateLimitStore();
+    await __resetRateLimitStore();
     mockGetServerSession.mockResolvedValue({ user: { id: "user-cap" } });
     jest.spyOn(console, "log").mockImplementation(() => {});
   });
@@ -92,8 +92,8 @@ describe("POST /api/upload — file count cap", () => {
 describe("GET /api/jobs/[id] — job id format validation", () => {
   const { __resetRateLimitStore } = require("@/app/lib/serverRateLimit");
 
-  beforeEach(() => {
-    __resetRateLimitStore();
+  beforeEach(async () => {
+    await __resetRateLimitStore();
     mockGetServerSession.mockResolvedValue({ user: { id: "user-jobs" } });
   });
 
@@ -152,71 +152,71 @@ describe("applyRateLimit — serverRateLimit", () => {
     });
   }
 
-  beforeEach(() => __resetRateLimitStore());
+  beforeEach(async () => await __resetRateLimitStore());
 
-  it("returns null when under the limit", () => {
-    expect(applyRateLimit(makeReq(), { limit: 5, windowMs: 60_000 })).toBeNull();
+  it("returns null when under the limit", async () => {
+    expect(await applyRateLimit(makeReq(), { limit: 5, windowMs: 60_000 })).toBeNull();
   });
 
-  it("returns 429 when limit exceeded", () => {
+  it("returns 429 when limit exceeded", async () => {
     const req = makeReq("2.3.4.5");
     const opts = { limit: 2, windowMs: 60_000 };
-    applyRateLimit(req, opts);
-    applyRateLimit(req, opts);
-    const res = applyRateLimit(req, opts);
+    await applyRateLimit(req, opts);
+    await applyRateLimit(req, opts);
+    const res = await applyRateLimit(req, opts);
     expect(res?.status).toBe(429);
   });
 
-  it("sets X-RateLimit-Limit header on 429", () => {
+  it("sets X-RateLimit-Limit header on 429", async () => {
     const req = makeReq("3.4.5.6");
     const opts = { limit: 1, windowMs: 60_000 };
-    applyRateLimit(req, opts);
-    const res = applyRateLimit(req, opts);
+    await applyRateLimit(req, opts);
+    const res = await applyRateLimit(req, opts);
     expect(res?.headers.get("X-RateLimit-Limit")).toBe("1");
   });
 
-  it("sets X-RateLimit-Remaining: 0 on 429", () => {
+  it("sets X-RateLimit-Remaining: 0 on 429", async () => {
     const req = makeReq("4.5.6.7");
     const opts = { limit: 1, windowMs: 60_000 };
-    applyRateLimit(req, opts);
-    const res = applyRateLimit(req, opts);
+    await applyRateLimit(req, opts);
+    const res = await applyRateLimit(req, opts);
     expect(res?.headers.get("X-RateLimit-Remaining")).toBe("0");
   });
 
-  it("sets Retry-After header on 429", () => {
+  it("sets Retry-After header on 429", async () => {
     const req = makeReq("5.6.7.8");
     const opts = { limit: 1, windowMs: 60_000 };
-    applyRateLimit(req, opts);
-    const res = applyRateLimit(req, opts);
+    await applyRateLimit(req, opts);
+    const res = await applyRateLimit(req, opts);
     const retryAfter = Number(res?.headers.get("Retry-After"));
     expect(retryAfter).toBeGreaterThan(0);
     expect(retryAfter).toBeLessThanOrEqual(60);
   });
 
-  it("uses separate buckets per IP", () => {
+  it("uses separate buckets per IP", async () => {
     const opts = { limit: 1, windowMs: 60_000 };
-    applyRateLimit(makeReq("10.0.0.1"), opts);
-    applyRateLimit(makeReq("10.0.0.1"), opts); // 429 for .1
-    expect(applyRateLimit(makeReq("10.0.0.2"), opts)).toBeNull(); // .2 unaffected
+    await applyRateLimit(makeReq("10.0.0.1"), opts);
+    await applyRateLimit(makeReq("10.0.0.1"), opts); // 429 for .1
+    expect(await applyRateLimit(makeReq("10.0.0.2"), opts)).toBeNull(); // .2 unaffected
   });
 
-  it("resets bucket after window elapses", () => {
+  it("resets bucket after window elapses", async () => {
     jest.useFakeTimers();
     const req = makeReq("6.7.8.9");
     const opts = { limit: 1, windowMs: 1000 };
-    applyRateLimit(req, opts);
-    applyRateLimit(req, opts); // 429
+    await applyRateLimit(req, opts);
+    await applyRateLimit(req, opts); // 429
     jest.advanceTimersByTime(1001);
-    expect(applyRateLimit(req, opts)).toBeNull(); // window reset
+    expect(await applyRateLimit(req, opts)).toBeNull(); // window reset
     jest.useRealTimers();
   });
 
-  it("getRateLimitHeaders returns correct remaining count", () => {
+  it("getRateLimitHeaders returns correct remaining count", async () => {
     const req = makeReq("7.8.9.10");
     const opts = { limit: 10, windowMs: 60_000 };
-    applyRateLimit(req, opts); // count = 1
-    applyRateLimit(req, opts); // count = 2
-    const h = getRateLimitHeaders(req, opts);
+    await applyRateLimit(req, opts); // count = 1
+    await applyRateLimit(req, opts); // count = 2
+    const h = await getRateLimitHeaders(req, opts);
     expect(h["X-RateLimit-Limit"]).toBe("10");
     expect(h["X-RateLimit-Remaining"]).toBe("8");
   });

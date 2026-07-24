@@ -1,96 +1,97 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/lib/auth";
-import * as Sentry from "@sentry/nextjs";
-import type { ApiResponse } from "../types";
-
-export type Transaction = {
-  id: string;
-  date: string;
-  description: string;
-  amount: number;
-  cryptoAmount?: number;
-  cryptoCurrency?: "ETH" | "SOL" | "USDC";
-  platform: "YouTube" | "TikTok" | "Instagram" | "Twitch";
-  type: "payout" | "royalty" | "mint" | "referral";
-  status: "completed" | "pending" | "failed";
-  taxId: string;
-};
-
-export type EarningsSummary = {
-  total: string;
-  completed: string;
-  pending: string;
-};
-
-export type EarningsReport = {
-  transactions: Transaction[];
-  summary: EarningsSummary;
-  pagination: {
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-  };
-};
-
 /**
- * Fetch the authenticated user's earnings transactions with pagination.
+ * GET /api/earnings
  *
- * TODO: Replace the stub below with a real database query.
- * Example using Prisma:
+ * Aggregated earnings summary consumed by the dashboard store
+ * (app/lib/apiClient → fetchEarningsFromAPI).
  *
- *   const [transactions, total] = await Promise.all([
- *     prisma.transaction.findMany({
- *       where: { userId },
- *       orderBy: { createdAt: "desc" },
- *       skip: (page - 1) * pageSize,
- *       take: pageSize,
- *     }),
- *     prisma.transaction.count({ where: { userId } }),
- *   ]);
+ * Returns high-level totals and trend for the KPI cards on the main
+ * dashboard — not the full transaction list (that lives at
+ * GET /api/earnings/transactions).
  */
-async function queryEarningsReport(
-  userId: string,
-  page: number,
-  pageSize: number
-): Promise<EarningsReport> {
-  // TODO: Replace with real database query (see comment above).
-  // Returning empty results until the data layer is wired up.
-  void userId; // will be used in the real query
+
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/app/api/jobs/shared/authGuard";
+import { applyRateLimit } from "@/app/lib/serverRateLimit";
+import { earningsStore } from "./earningsStore";
+import type { ApiResponse } from "../types";
+import type { EarningTransaction } from "./types";
+
+function sumAmount(txs: EarningTransaction[]): number {
+  return txs.reduce((acc, tx) => acc + tx.amount, 0);
+}
+
+function calcTrendLabel(current: number, previous: number): { value: number; label: string } {
+  if (previous === 0) {
+    const value = current > 0 ? 100 : 0;
+    return { value, label: value === 0 ? "+0.0%" : "+100.0%" };
+  }
+  const pct = ((current - previous) / previous) * 100;
+  const rounded = Math.round(pct * 10) / 10;
   return {
-    transactions: [],
-    summary: { total: "0.00", completed: "0.00", pending: "0.00" },
-    pagination: { page, pageSize, total: 0, totalPages: 0 },
+    value: rounded,
+    label: (rounded >= 0 ? "+" : "") + rounded.toFixed(1) + "%",
   };
 }
 
 export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const rateLimited = applyRateLimit(request, { limit: 60, windowMs: 60_000 });
+  if (rateLimited) return rateLimited;
 
-    const { searchParams } = request.nextUrl;
-    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
-    const pageSize = Math.min(
-      100,
-      Math.max(1, parseInt(searchParams.get("pageSize") ?? "20", 10) || 20)
-    );
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-    const userId = session.user.id ?? session.user.email ?? "";
-    const data = await queryEarningsReport(userId, page, pageSize);
-    const body: ApiResponse<EarningsReport> = { data, error: null };
-    return NextResponse.json(body);
-  } catch (err: unknown) {
-    Sentry.captureException(err);
-    const message = err instanceof Error ? err.message : "Internal server error";
-    const body: ApiResponse<null> = {
-      data: null,
-      error: message,
-      code: "EARNINGS_INTERNAL_ERROR",
-    };
-    return NextResponse.json(body, { status: 500 });
-  }
+  const allTransactions = earningsStore.getTransactions(userId);
+
+  // 30-day current vs prior window for trend
+  const now = new Date();
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+  const currentWindowStart = new Date(now.getTime() - thirtyDaysMs)
+    .toISOString()
+    .split("T")[0];
+  const priorWindowStart = new Date(now.getTime() - 2 * thirtyDaysMs)
+    .toISOString()
+    .split("T")[0];
+  const today = now.toISOString().split("T")[0];
+
+  const currentPeriod = allTransactions.filter(
+    (tx) => tx.date >= currentWindowStart && tx.date <= today
+  );
+  const priorPeriod = allTransactions.filter(
+    (tx) => tx.date >= priorWindowStart && tx.date < currentWindowStart
+  );
+
+  const currentTotal = sumAmount(currentPeriod);
+  const priorTotal = sumAmount(priorPeriod);
+  const trend = calcTrendLabel(currentTotal, priorTotal);
+
+  const completedAll = allTransactions.filter((tx) => tx.status === "completed");
+  const pendingAll = allTransactions.filter((tx) => tx.status === "pending");
+
+  const totalEarnings = sumAmount(allTransactions).toFixed(2);
+  const completedEarnings = sumAmount(completedAll).toFixed(2);
+  const pendingEarnings = sumAmount(pendingAll).toFixed(2);
+
+  // Crypto holdings summary
+  const cryptoTxs = allTransactions.filter((tx) => tx.cryptoAmount !== undefined);
+  const cryptoTotal = cryptoTxs.reduce((acc, tx) => acc + (tx.cryptoAmount ?? 0), 0);
+
+  const responseData = {
+    totalEarnings: `$${totalEarnings}`,
+    totalTrend: trend.value,
+    trendLabel: `${trend.label} from last month`,
+    totalFiat: { value: `$${totalEarnings}`, change: trend.value },
+    cryptoRevenue: { value: `${cryptoTotal.toFixed(4)} ETH`, change: 0 },
+    pendingPayouts: { value: `$${pendingEarnings}`, change: 0 },
+    breakdown: completedAll.slice(0, 5).map((tx) => ({
+      id: tx.id,
+      label: tx.description,
+      amount: tx.amount,
+      date: tx.date,
+      platform: tx.platform.toLowerCase(),
+    })),
+  };
+
+  const body: ApiResponse<typeof responseData> = { data: responseData, error: null };
+  return NextResponse.json(body);
 }

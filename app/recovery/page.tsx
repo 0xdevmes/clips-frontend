@@ -45,7 +45,9 @@ export default function RecoveryPage() {
   const [isRecoverable, setIsRecoverable] = useState(false);
   const [recoveryPassword, setRecoveryPassword] = useState("");
   const [simulating, setSimulating] = useState(false);
-  const isDev = typeof process !== "undefined" && process.env.NODE_ENV !== "production";
+  // Next.js replaces process.env.NODE_ENV at build time, so this button is
+  // compiled out entirely in production builds — it never ships to users.
+  const isDev = process.env.NODE_ENV !== "production";
 
   const handleMnemonicRecovery = async (e: React.FormEvent) => {
     e.preventDefault();

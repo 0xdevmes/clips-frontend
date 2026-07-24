@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/auth";
 import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
+import { checkCsrf } from "@/app/lib/csrf";
 
 export const UserProfileResponseSchema = z.object({
   id: z.string(),
@@ -43,6 +44,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const csrfError = checkCsrf(request);
+  if (csrfError) return csrfError;
+
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {

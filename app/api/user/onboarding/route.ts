@@ -4,6 +4,7 @@ import { authOptions } from "@/app/lib/auth";
 import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
 import { logger } from "@/app/lib/logger";
+import { checkCsrf } from "@/app/lib/csrf";
 
 export const PostOnboardingSchema = z.object({
   step: z.number().min(0),
@@ -15,6 +16,9 @@ export const OnboardingResponseSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const csrfError = checkCsrf(request);
+  if (csrfError) return csrfError;
+
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {

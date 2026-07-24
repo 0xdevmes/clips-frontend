@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/lib/auth";
 import { logger } from "@/app/lib/logger";
+import { checkCsrf } from "@/app/lib/csrf";
 
 export async function POST(request: NextRequest) {
+  const csrfError = checkCsrf(request);
+  if (csrfError) return csrfError;
+
   try {
     const session = await auth();
     const userId = (session?.user as { id?: string } | undefined)?.id;

@@ -13,11 +13,15 @@ import {
   FileJson,
   FileSpreadsheet,
 } from "lucide-react";
-import { MockApi } from "@/__mocks__/app/lib/mockApi";
-import type { EarningsSummary as Summary, Transaction } from "@/app/api/earnings/route";
-import { useAuth } from "@/components/AuthProvider";
-import analytics from "@/app/lib/analytics";
+import type {
+  EarningTransaction,
+  EarningsSummary,
+  EarningsTrend,
+} from "@/app/api/earnings/types";
+import type { ApiResponse } from "@/app/api/types";
+import type { EarningsResponse } from "@/app/api/earnings/types";
 import { useFilterQueryState } from "@/hooks/useFilterQueryState";
+import analytics from "@/app/lib/analytics";
 
 type ExportFormat = "csv" | "json" | "pdf";
 
@@ -33,13 +37,24 @@ function sanitizeCsvCell(value: string): string {
   return value;
 }
 
-function ExportMenu({ onExport, exporting }: { onExport: (f: ExportFormat) => void; exporting: boolean }) {
+function ExportMenu({
+  onExport,
+  exporting,
+}: {
+  onExport: (f: ExportFormat) => void;
+  exporting: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof MouseEvent && ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (
+        e instanceof MouseEvent &&
+        ref.current &&
+        !ref.current.contains(e.target as Node)
+      )
+        setOpen(false);
       if (e instanceof KeyboardEvent && e.key === "Escape") setOpen(false);
     };
     document.addEventListener("mousedown", handler);
@@ -50,10 +65,30 @@ function ExportMenu({ onExport, exporting }: { onExport: (f: ExportFormat) => vo
     };
   }, []);
 
-  const options: { format: ExportFormat; label: string; desc: string; Icon: React.ElementType }[] = [
-    { format: "csv",  label: "CSV",  desc: "Spreadsheet / Excel",       Icon: FileSpreadsheet },
-    { format: "json", label: "JSON", desc: "Developer / API integration", Icon: FileJson },
-    { format: "pdf",  label: "PDF",  desc: "Tax filing / Accountant",    Icon: FileText },
+  const options: {
+    format: ExportFormat;
+    label: string;
+    desc: string;
+    Icon: React.ElementType;
+  }[] = [
+    {
+      format: "csv",
+      label: "CSV",
+      desc: "Spreadsheet / Excel",
+      Icon: FileSpreadsheet,
+    },
+    {
+      format: "json",
+      label: "JSON",
+      desc: "Developer / API integration",
+      Icon: FileJson,
+    },
+    {
+      format: "pdf",
+      label: "PDF",
+      desc: "Tax filing / Accountant",
+      Icon: FileText,
+    },
   ];
 
   return (
@@ -67,19 +102,40 @@ function ExportMenu({ onExport, exporting }: { onExport: (f: ExportFormat) => vo
         aria-label="Export options"
       >
         {exporting ? (
-          <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+          <svg
+            className="w-4 h-4 animate-spin"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8v8H4z"
+            />
           </svg>
         ) : (
           <Download className="w-4 h-4" aria-hidden="true" />
         )}
         {exporting ? "Exporting…" : "Export"}
-        {!exporting && <ChevronDown className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />}
+        {!exporting && (
+          <ChevronDown
+            className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`}
+            aria-hidden="true"
+          />
+        )}
       </button>
 
       {open && (
-        <div 
+        <div
           role="listbox"
           aria-label="Export formats"
           className="absolute right-0 top-full mt-2 w-56 bg-[#0C120F] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150"
@@ -89,11 +145,17 @@ function ExportMenu({ onExport, exporting }: { onExport: (f: ExportFormat) => vo
               key={format}
               role="option"
               aria-selected={false}
-              onClick={() => { onExport(format); setOpen(false); }}
+              onClick={() => {
+                onExport(format);
+                setOpen(false);
+              }}
               className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/5 transition-colors group"
               aria-label={`Export as ${label}`}
             >
-              <Icon className="w-4 h-4 text-muted-foreground group-hover:text-brand transition-colors shrink-0" aria-hidden="true" />
+              <Icon
+                className="w-4 h-4 text-muted-foreground group-hover:text-brand transition-colors shrink-0"
+                aria-hidden="true"
+              />
               <div>
                 <p className="text-[13px] font-bold text-white">{label}</p>
                 <p className="text-[11px] text-muted-foreground">{desc}</p>
@@ -106,56 +168,95 @@ function ExportMenu({ onExport, exporting }: { onExport: (f: ExportFormat) => vo
   );
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function EarningsPage() {
-  const [summary, setSummary] = useState<Summary>({
+  const [summary, setSummary] = useState<EarningsSummary>({
     total: "0.00",
     completed: "0.00",
     pending: "0.00",
   });
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
-  const [pagination, setPagination] = useState<{ page: number; pageSize: number; total: number; totalPages: number } | undefined>();
+  const [trends, setTrends] = useState<EarningsTrend>({
+    totalTrend: { value: 0, label: "+0.0%" },
+    completedTrend: { value: 0, label: "+0.0%" },
+  });
+  const [taxReady, setTaxReady] = useState(false);
+  const [transactions, setTransactions] = useState<EarningTransaction[]>([]);
+  const [filteredTransactions, setFilteredTransactions] = useState<
+    EarningTransaction[]
+  >([]);
+  const [pagination, setPagination] = useState<
+    | { page: number; pageSize: number; total: number; totalPages: number }
+    | undefined
+  >();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
-  const { user } = useAuth();
 
   const { filters, updateFilters } = useFilterQueryState({ page: 1, pageSize: 20 });
   const { page, pageSize } = filters;
 
+  // ─── Fetch from the real API ────────────────────────────────────────────────
+
   useEffect(() => {
     async function loadData() {
-      if (!user?.id) return;
       try {
         setLoading(true);
-        const data = await MockApi.getEarningsReport(user.id, { page, pageSize });
+        setError(null);
+
+        const params = new URLSearchParams({
+          page: String(page),
+          pageSize: String(pageSize),
+        });
+
+        const res = await fetch(`/api/earnings/transactions?${params}`);
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        const json: ApiResponse<EarningsResponse> = await res.json();
+
+        if (json.error || !json.data) {
+          throw new Error(json.error ?? "Unexpected empty response");
+        }
+
+        const data = json.data;
         setSummary(data.summary);
+        setTrends(data.trends);
+        setTaxReady(data.taxReady);
         setTransactions(data.transactions);
         setPagination(data.pagination);
-      } catch (error) {
-        console.error("Failed to load earnings summary:", error);
+      } catch (err) {
+        console.error("Failed to load earnings:", err);
+        setError(err instanceof Error ? err.message : "Failed to load earnings");
       } finally {
         setLoading(false);
       }
     }
-    loadData();
-  }, [user?.id, page, pageSize]);
 
-  const generatePdfHtml = useCallback((exportData: Transaction[]) => {
-    const rows = exportData
-      .map(
-        (tx) =>
-          `<tr>
+    loadData();
+  }, [page, pageSize]);
+
+  // ─── PDF helper ─────────────────────────────────────────────────────────────
+
+  const generatePdfHtml = useCallback(
+    (exportData: EarningTransaction[]) => {
+      const rows = exportData
+        .map(
+          (tx) =>
+            `<tr>
             <td>${tx.date}</td>
             <td>${tx.description}</td>
             <td>$${tx.amount.toFixed(2)}</td>
             <td>${tx.platform}</td>
             <td>${tx.status}</td>
             <td>${tx.taxId}</td>
-          </tr>`,
-      )
-      .join("");
+          </tr>`
+        )
+        .join("");
 
-    return `<!DOCTYPE html>
+      return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
@@ -188,18 +289,25 @@ export default function EarningsPage() {
   </table>
 </body>
 </html>`;
-  }, [summary]);
+    },
+    [summary]
+  );
 
-  const exportCSV = async (format: "csv" | "json" | "pdf") => {
-    const exportData = filteredTransactions.length > 0 ? filteredTransactions : transactions;
-    if (!user?.id || exportData.length === 0) return;
+  // ─── Export ──────────────────────────────────────────────────────────────────
+
+  const exportCSV = async (format: ExportFormat) => {
+    const exportData =
+      filteredTransactions.length > 0 ? filteredTransactions : transactions;
+    if (exportData.length === 0) return;
 
     // For PDF, open the popup synchronously before any async operations
     let pdfWindow: Window | null = null;
     if (format === "pdf") {
       pdfWindow = window.open("", "_blank");
       if (!pdfWindow) {
-        alert("Pop-ups are blocked. Please allow pop-ups for this site to export PDF.");
+        alert(
+          "Pop-ups are blocked. Please allow pop-ups for this site to export PDF."
+        );
         return;
       }
     }
@@ -221,29 +329,35 @@ export default function EarningsPage() {
           ]),
         ]
           .map((row) =>
-            row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
+            row
+              .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+              .join(",")
           )
           .join("\r\n");
 
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const blob = new Blob([csvContent], {
+          type: "text/csv;charset=utf-8;",
+        });
         triggerDownload(blob, `clipcash-earnings-${monthStamp()}.csv`);
-
       } else if (format === "json") {
-        const json = JSON.stringify({ summary, transactions: exportData }, null, 2);
-        const blob = new Blob([json], { type: "application/json;charset=utf-8;" });
+        const json = JSON.stringify(
+          { summary, transactions: exportData },
+          null,
+          2
+        );
+        const blob = new Blob([json], {
+          type: "application/json;charset=utf-8;",
+        });
         triggerDownload(blob, `clipcash-earnings-${monthStamp()}.json`);
-
       } else if (format === "pdf" && pdfWindow) {
         const html = generatePdfHtml(exportData);
-
-        // Write to the already-opened window (synchronous, so no popup block)
         pdfWindow.document.write(html);
         pdfWindow.document.close();
         pdfWindow.focus();
         pdfWindow.print();
       }
-    } catch (error) {
-      console.error("Export failed:", error);
+    } catch (err) {
+      console.error("Export failed:", err);
       alert("Export failed. Please try again.");
     } finally {
       setExporting(false);
@@ -264,11 +378,12 @@ export default function EarningsPage() {
 
   const monthStamp = () => new Date().toISOString().slice(0, 7);
 
+  // ─── Loading skeleton ────────────────────────────────────────────────────────
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-10">
         <div className="space-y-8">
-          {/* Header skeleton */}
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="space-y-2">
               <div className="h-9 w-64 rounded-xl bg-white/6 animate-pulse" />
@@ -276,22 +391,42 @@ export default function EarningsPage() {
             </div>
             <div className="h-11 w-28 rounded-xl bg-white/6 animate-pulse" />
           </div>
-          {/* Stat cards skeleton */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="h-28 rounded-2xl bg-white/6 animate-pulse" />
             ))}
           </div>
-          {/* Table skeleton */}
           <div className="rounded-2xl bg-white/6 animate-pulse h-80" />
         </div>
       </div>
     );
   }
 
+  // ─── Error state ─────────────────────────────────────────────────────────────
+
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-10">
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-center">
+          <p className="text-red-400 font-medium">Failed to load earnings</p>
+          <p className="text-muted text-sm mt-1">{error}</p>
+          <button
+            onClick={() => updateFilters({ page: 1 })}
+            className="mt-4 text-sm text-brand hover:underline"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Render ──────────────────────────────────────────────────────────────────
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-10">
       <div className="space-y-8">
+        {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <h1 className="text-[28px] sm:text-[32px] font-extrabold tracking-tight text-white leading-tight">
@@ -307,17 +442,18 @@ export default function EarningsPage() {
           <ExportMenu onExport={exportCSV} exporting={exporting} />
         </div>
 
+        {/* Stat cards — trends come from the API, taxReady reflects real data */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
             label="Total Earned"
             value={`$${summary.total}`}
-            trend={{ value: 12.5, label: "+12.5%" }}
+            trend={trends.totalTrend}
             icon={DollarSign}
           />
           <StatCard
             label="Completed"
             value={`$${summary.completed}`}
-            trend={{ value: 8.2, label: "+8.2%" }}
+            trend={trends.completedTrend}
             icon={TrendingUp}
           />
           <StatCard
@@ -329,13 +465,14 @@ export default function EarningsPage() {
           />
           <StatCard
             label="Tax Ready"
-            value="✅ Yes"
-            trend="Exportable"
+            value={taxReady ? "✅ Yes" : "⏳ No"}
+            trend={taxReady ? "Exportable" : "No completed transactions"}
             icon={FileText}
             hideTrendIcon={true}
           />
         </div>
 
+        {/* Transactions table */}
         <EarningsTable
           transactions={transactions}
           summary={summary}

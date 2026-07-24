@@ -3,13 +3,13 @@
 import React, { useEffect, useMemo } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useFilterQueryState } from "@/hooks/useFilterQueryState";
-import type { Transaction, EarningsSummary as Summary } from "@/app/api/earnings/route";
+import type { EarningTransaction, EarningsSummary } from "@/app/api/earnings/types";
 
 interface EarningsTableProps {
-  transactions: Transaction[];
-  summary: Summary;
+  transactions: EarningTransaction[];
+  summary: EarningsSummary;
   loading?: boolean;
-  onFilteredTransactionsChange?: (filtered: Transaction[]) => void;
+  onFilteredTransactionsChange?: (filtered: EarningTransaction[]) => void;
   /** Pagination from the parent (server-driven). When provided, renders prev/next controls. */
   pagination?: { page: number; pageSize: number; total: number; totalPages: number };
   onPageChange?: (page: number) => void;
