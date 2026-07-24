@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useFilterQueryState } from "@/hooks/useFilterQueryState";
-import type { Transaction, Summary } from "@/app/lib/mockApi";
+import type { Transaction, EarningsSummary as Summary } from "@/app/api/earnings/route";
 
 interface EarningsTableProps {
   transactions: Transaction[];

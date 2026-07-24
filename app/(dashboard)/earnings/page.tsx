@@ -13,7 +13,8 @@ import {
   FileJson,
   FileSpreadsheet,
 } from "lucide-react";
-import { MockApi, type Summary, type Transaction } from "@/app/lib/mockApi";
+import { MockApi } from "@/__mocks__/app/lib/mockApi";
+import type { EarningsSummary as Summary, Transaction } from "@/app/api/earnings/route";
 import { useAuth } from "@/components/AuthProvider";
 import analytics from "@/app/lib/analytics";
 import { useFilterQueryState } from "@/hooks/useFilterQueryState";

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useWallet } from "@/components/wallet/WalletProvider";
-import { MockApi } from "@/app/lib/mockApi";
+import { MockApi } from "@/__mocks__/app/lib/mockApi";
 import { restoreWalletFromMnemonic } from "@/app/lib/stellar";
 import { decryptWithPassword } from "@/app/lib/cryptoUtils";
 import { secureStorage } from "@/app/lib/secureStorage";

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { MockApi } from "../lib/mockApi";
+import { MockApi } from "../../__mocks__/app/lib/mockApi";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 

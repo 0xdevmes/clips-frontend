@@ -5,7 +5,7 @@ import Twitter from "next-auth/providers/twitter";
 import Instagram from "next-auth/providers/instagram";
 import Credentials from "next-auth/providers/credentials";
 import { jwtCallback, sessionCallback } from "./authCallbacks";
-import { MockApi } from "./mockApi";
+import { MockApi } from "@/__mocks__/app/lib/mockApi";
 
 /**
  * Auth.js v5 configuration — Issue #530
