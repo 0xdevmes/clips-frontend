@@ -59,6 +59,25 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  {
+    // Build-time guard: no API route file may import from mockApi (in any location).
+    // This prevents mock data from accidentally shipping to production.
+    files: ["app/api/**/*.ts", "app/api/**/*.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/mockApi*", "**/mockApi/**", "**/__mocks__/**"],
+              message:
+                "API routes must not import from mockApi or __mocks__. Replace with a real database query.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;
