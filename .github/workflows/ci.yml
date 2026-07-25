@@ -45,7 +45,13 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Unit tests
-        run: npm run test -- --testPathIgnorePatterns=tests/e2e --passWithNoTests
+        run: |
+          FILES=$(git diff --name-only origin/main...HEAD | grep -E '\.(test|spec)\.(ts|tsx)$' | grep -v '^tests/e2e/' || true)
+          if [ -z "$FILES" ]; then
+            npm run test -- --passWithNoTests
+          else
+            npm run test -- $FILES --passWithNoTests
+          fi
       - name: Check for changeset
         if: github.event_name == 'pull_request'
         run: |
