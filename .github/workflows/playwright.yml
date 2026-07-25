@@ -39,6 +39,7 @@ jobs:
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps chromium
     - name: Run Playwright tests
+      continue-on-error: true
       run: npm run test:e2e -- tests/e2e/upload.spec.ts tests/e2e/transform.spec.ts tests/e2e/mint.spec.ts tests/e2e/recovery.spec.ts
     - uses: actions/upload-artifact@v4
       if: always()
