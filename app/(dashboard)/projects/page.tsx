@@ -6,10 +6,13 @@ import ClipGrid from "@/components/projects/ClipGrid";
 import SelectionFooter from "@/components/projects/SelectionFooter";
 import ClipEditorModal, { type ClipEdits } from "@/components/projects/ClipEditorModal";
 import ClipPreviewModal from "@/components/projects/ClipPreviewModal";
+import { BatchTransformModal } from "@/components/transform/BatchTransformModal";
+import { BatchTransformQueue } from "@/components/transform/BatchTransformQueue";
 import { X } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useFilterQueryState } from "@/hooks/useFilterQueryState";
+import { useBatchTransform } from "@/app/hooks/useBatchTransform";
 import { useEffect } from "react";
 
 const RECOMMENDATION_THRESHOLD = 90;
@@ -39,6 +42,18 @@ export default function ProjectsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [isMinting, setIsMinting] = useState(false);
+  const [showTransformModal, setShowTransformModal] = useState(false);
+
+  const {
+    batch: transformBatch,
+    isSubmitting: isTransformSubmitting,
+    submitError: transformSubmitError,
+    completedCount: transformCompletedCount,
+    totalCount: transformTotalCount,
+    startBatch: startTransformBatch,
+    cancelJob: cancelTransformJob,
+    clearBatch: clearTransformBatch,
+  } = useBatchTransform();
 
   const { filters, updateFilters, resetFilters } = useFilterQueryState({
     style: "All Styles",
@@ -190,6 +205,26 @@ export default function ProjectsPage() {
     }
   }, [selectedIds]);
 
+  const handleOpenTransformModal = useCallback(() => {
+    if (selectedIds.length === 0) return;
+    setShowTransformModal(true);
+  }, [selectedIds]);
+
+  const handleTransformConfirm = useCallback(
+    async (style: string) => {
+      await startTransformBatch(selectedIds, style);
+      setShowTransformModal(false);
+      if (!transformSubmitError) {
+        showToast(
+          `Started ${selectedIds.length} AI transform job${selectedIds.length !== 1 ? "s" : ""}`,
+          "success",
+        );
+        setSelectedIds([]);
+      }
+    },
+    [selectedIds, startTransformBatch, transformSubmitError, showToast, setSelectedIds],
+  );
+
   return (
     <>
       {/* Mobile Filter Drawer Overlay */}
@@ -276,6 +311,8 @@ export default function ProjectsPage() {
               redo={redo}
               canUndo={canUndo}
               canRedo={canRedo}
+              onTransform={handleOpenTransformModal}
+              isTransforming={isTransformSubmitting}
             />
           </div>
         </div>
@@ -292,6 +329,26 @@ export default function ProjectsPage() {
         <ClipPreviewModal
           clip={previewClip}
           onClose={() => setPreviewClip(null)}
+        />
+      )}
+      {/* Batch Transform Modal */}
+      {showTransformModal && (
+        <BatchTransformModal
+          clipCount={selectedIds.length}
+          isSubmitting={isTransformSubmitting}
+          submitError={transformSubmitError}
+          onConfirm={handleTransformConfirm}
+          onClose={() => setShowTransformModal(false)}
+        />
+      )}
+      {/* Batch Transform Queue */}
+      {transformBatch && (
+        <BatchTransformQueue
+          batch={transformBatch}
+          completedCount={transformCompletedCount}
+          totalCount={transformTotalCount}
+          onCancelJob={cancelTransformJob}
+          onDismiss={clearTransformBatch}
         />
       )}
     </>
