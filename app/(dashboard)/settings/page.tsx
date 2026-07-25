@@ -249,6 +249,7 @@ export default function SettingsPage() {
   useEffect(() => () => clearMnemonicTimers(), [clearMnemonicTimers]);
 
   return (
+    <>
     <div className="dashboard-main space-y-8 max-w-[900px] mx-auto w-full p-6 md:p-8">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight">Wallet Settings</h1>
@@ -785,5 +786,6 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+    </>
   );
 }
