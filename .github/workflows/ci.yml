@@ -8,7 +8,7 @@ on:
 
 defaults:
   run:
-    working-directory: clips-frontend
+    working-directory: .
 
 jobs:
   build-and-test:
@@ -33,7 +33,7 @@ jobs:
         with:
           node-version: lts/*
           cache: npm
-          cache-dependency-path: clips-frontend/package-lock.json
+          cache-dependency-path: package-lock.json
       - name: Install dependencies
         run: npm install
       - name: Unit tests
