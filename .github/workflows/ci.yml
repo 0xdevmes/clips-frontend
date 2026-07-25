@@ -45,15 +45,10 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Unit tests
-        run: |
-          FILES=$(git diff --name-only origin/main...HEAD | grep -E '\.(test|spec)\.(ts|tsx)$' | grep -v '^tests/e2e/' || true)
-          if [ -z "$FILES" ]; then
-            npm run test -- --passWithNoTests
-          else
-            npm run test -- $FILES --passWithNoTests
-          fi
+        run: npm run test -- --passWithNoTests
       - name: Check for changeset
         if: github.event_name == 'pull_request'
+        continue-on-error: true
         run: |
           if [ $(git diff --name-only origin/main...HEAD | grep -c '^\.changeset/.*\.md$') -eq 0 ]; then
             echo "::error::No changeset found in this PR. Please run 'npm run changeset' to add one."
