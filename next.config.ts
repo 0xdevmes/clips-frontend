@@ -5,7 +5,64 @@ import withBundleAnalyzer from "@next/bundle-analyzer";
 
 validateRequiredEnv();
 
+const ANALYTICS_ENABLED = ["ga4", "plausible"].includes(
+  (process.env.NEXT_PUBLIC_ANALYTICS_PROVIDER ?? "").toLowerCase()
+);
+
+function buildCsp(): string {
+  const scriptSrc = ["'self'"];
+  if (ANALYTICS_ENABLED) {
+    scriptSrc.push("https://www.googletagmanager.com", "https://plausible.io");
+  }
+
+  const connectSrc = [
+    "'self'",
+    "https://horizon-testnet.stellar.org",
+    "https://horizon.stellar.org",
+    "https://api.coingecko.com",
+  ];
+  if (ANALYTICS_ENABLED) {
+    connectSrc.push("https://www.google-analytics.com", "https://plausible.io");
+  }
+
+  const directives: Record<string, string[]> = {
+    "default-src": ["'self'"],
+    "script-src": scriptSrc,
+    "connect-src": connectSrc,
+    "img-src": ["'self'", "data:", "https://api.dicebear.com", "https://images.unsplash.com"],
+    "style-src": ["'self'", "'unsafe-inline'"],
+    "frame-ancestors": ["'none'"],
+  };
+
+  return Object.entries(directives)
+    .map(([directive, sources]) => `${directive} ${sources.join(" ")}`)
+    .join("; ");
+}
+
+async function securityHeaders() {
+  return [
+    {
+      source: "/:path*",
+      headers: [
+        { key: "Content-Security-Policy", value: buildCsp() },
+        { key: "X-Frame-Options", value: "DENY" },
+        { key: "X-Content-Type-Options", value: "nosniff" },
+        { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        {
+          key: "Strict-Transport-Security",
+          value: "max-age=63072000; includeSubDomains; preload",
+        },
+        {
+          key: "Permissions-Policy",
+          value: "camera=(), microphone=(), geolocation=()",
+        },
+      ],
+    },
+  ];
+}
+
 const nextConfig: NextConfig = {
+  headers: securityHeaders,
   images: {
     remotePatterns: [
       {
