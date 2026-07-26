@@ -2,6 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/lib/auth";
 import { logger } from "@/app/lib/logger";
 import { checkCsrf } from "@/app/lib/csrf";
+import { passkeyStore } from "@/app/api/auth/passkey/passkeyStore";
+
+export async function GET() {
+  try {
+    const session = await auth();
+    const userId = (session?.user as { id?: string } | undefined)?.id;
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const credentials = passkeyStore.getCredentials(userId);
+    const hasPasskey = credentials.length > 0;
+
+    return NextResponse.json({
+      hasPasskey,
+      credentials,
+    });
+  } catch (error) {
+    logger.error("Error fetching passkey status:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
 
 export async function POST(request: NextRequest) {
   const csrfError = checkCsrf(request);
@@ -10,7 +33,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     const userId = (session?.user as { id?: string } | undefined)?.id;
-    
+
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -21,9 +44,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing credentialId" }, { status: 400 });
     }
 
-    // @TODO (Issue #599): Implement database adapter to persist passkey credentialId and publicKey
-    // Currently, this is a mock implementation acknowledging the server-side persistence requirement.
     logger.info(`Persisting passkey for user ${userId}: ${credentialId}`);
+
+    passkeyStore.addCredential(userId, {
+      credentialId,
+      publicKey: publicKey ?? credentialId,
+      userId,
+      counter: 0,
+      createdAt: new Date().toISOString(),
+      stellarPublicKey: publicKey,
+    });
 
     return NextResponse.json({ success: true, message: "Passkey registered successfully" });
   } catch (error) {

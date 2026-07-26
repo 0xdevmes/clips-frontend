@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import SocialRecoveryConfig from "@/components/SocialRecoveryConfig";
 import WalletConnectButton from "@/components/WalletConnectButton";
-import { Bell, BellOff, Check, X, Key, Wallet, Shield, Copy, Eye, EyeOff, Globe, Moon, Sun, TimerOff, Lock, Download } from "lucide-react";
+import { Bell, BellOff, Check, X, Key, Wallet, Shield, Copy, Eye, EyeOff, Globe, Moon, Sun, TimerOff, Lock, Download, Fingerprint } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/hooks/useToast";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -18,6 +18,7 @@ import Skeleton from "@/components/ui/Skeleton";
 import TrustlineManager from "@/components/wallet/TrustlineManager";
 import { useTheme } from "@/components/theme-provider";
 import { encryptWithPassword } from "@/app/lib/cryptoUtils";
+import { usePasskeyWallet } from "@/app/hooks/usePasskeyWallet";
 
 export default function SettingsPage() {
   const { showToast } = useToast();
@@ -97,6 +98,16 @@ export default function SettingsPage() {
     importStellarKey,
     isRestoringSession,
   } = useWallet();
+
+  const {
+    credentialId: passkeyCredentialId,
+    publicKey: passkeyPublicKey,
+    isSupported: passkeySupported,
+    isRegistering: passkeyRegistering,
+    error: passkeyError,
+    register: registerPasskey,
+    reset: resetPasskey,
+  } = usePasskeyWallet();
 
   const pageLoading = authLoading || isRestoringSession;
 
@@ -477,6 +488,98 @@ export default function SettingsPage() {
                         }`}
                     />
                   </button>
+                </div>
+              </div>
+
+              <div className="h-px bg-white/5 my-4" />
+
+              {/* Security Settings — Passkey Authentication */}
+              <div className="space-y-4">
+                <div>
+                  <h2 className="text-lg font-extrabold text-white">Security</h2>
+                  <p className="text-xs text-muted-foreground leading-relaxed mt-1">
+                    Manage biometric authentication and passkey-based wallet access.
+                  </p>
+                </div>
+
+                <div className="bg-surface border border-white/5 rounded-2xl p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand shrink-0">
+                        <Fingerprint className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-white">Passkey Wallet Authentication</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Use biometrics or hardware security key to authenticate your wallet.
+                        </p>
+                      </div>
+                    </div>
+
+                    {!passkeySupported && (
+                      <span className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 font-semibold">
+                        Not supported
+                      </span>
+                    )}
+                    {passkeySupported && passkeyCredentialId && (
+                      <span className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-brand/10 border border-brand/25 text-brand font-semibold">
+                        Registered
+                      </span>
+                    )}
+                  </div>
+
+                  {!passkeySupported ? (
+                    <div className="mt-4 p-3 bg-yellow-500/5 border border-yellow-500/15 rounded-xl">
+                      <p className="text-xs text-yellow-300 leading-relaxed">
+                        Your browser does not support WebAuthn passkeys. Try Chrome, Safari, or Edge on a device with biometric authentication.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-5 space-y-4">
+                      {passkeyCredentialId ? (
+                        <div className="space-y-3">
+                          <div className="p-3 rounded-xl bg-black/40 border border-white/5">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Credential ID</p>
+                            <p className="text-xs font-mono text-white break-all">{passkeyCredentialId.slice(0, 32)}…</p>
+                            {passkeyPublicKey && (
+                              <>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 mt-2">Linked Stellar Address</p>
+                                <p className="text-xs font-mono text-brand break-all">{passkeyPublicKey}</p>
+                              </>
+                            )}
+                          </div>
+                          <button
+                            id="passkey-reset-btn"
+                            onClick={resetPasskey}
+                            className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold hover:bg-red-500/20 transition-all cursor-pointer"
+                          >
+                            Remove Passkey
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            Register a passkey to sign in with your fingerprint, face, or security key instead of a password.
+                          </p>
+                          <button
+                            id="passkey-register-btn"
+                            onClick={() => registerPasskey()}
+                            disabled={passkeyRegistering}
+                            className="px-4 py-2.5 rounded-xl bg-brand text-black text-xs font-extrabold hover:bg-brand-hover transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                          >
+                            <Fingerprint className="w-3.5 h-3.5" />
+                            {passkeyRegistering ? "Registering…" : "Register Passkey"}
+                          </button>
+                        </div>
+                      )}
+
+                      {passkeyError && (
+                        <div className="p-3 bg-red-950/40 border border-red-500/20 rounded-xl">
+                          <p className="text-xs text-red-400 font-semibold">{passkeyError}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
