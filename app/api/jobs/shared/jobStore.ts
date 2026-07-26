@@ -44,6 +44,7 @@ export interface JobStore {
   delete(id: string): Promise<void>;
   clear(): Promise<void>;
   getAll(): Promise<Job[]>;
+  getUserJobs(userId: string): Promise<Job[]>;
 }
 
 import { JobRepository, createJobRepository } from "./jobRepository";
@@ -82,11 +83,11 @@ class JobRepositoryAdapter implements JobStore {
   }
 
   async getAll(): Promise<Job[]> {
-    // JobRepository doesn't have getAll(), so we need to track IDs separately
-    // For now, return empty array - this is a limitation of the current implementation
-    // In production, you'd want to maintain a Redis set of all job IDs
-    logger.warn("[jobStore] getAll() is not supported with JobRepository. Returns empty array.");
-    return [];
+    return this.repo.getAll();
+  }
+
+  async getUserJobs(userId: string): Promise<Job[]> {
+    return this.repo.getUserJobs(userId);
   }
 }
 

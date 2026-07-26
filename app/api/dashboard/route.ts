@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/lib/auth";
+import { requireAuth } from "@/app/api/jobs/shared/authGuard";
+import { applyRateLimit } from "@/app/lib/serverRateLimit";
+import { earningsStore } from "@/app/api/earnings/earningsStore";
+import { jobStore } from "@/app/api/jobs/shared/jobStore";
+import type { ApiResponse } from "../types";
 import type {
   DashboardStats,
+  EarningsStats,
+  ClipsStats,
+  PlatformsStats,
   RevenuePoint,
   Project,
 } from "@/app/store/types";
@@ -14,45 +22,167 @@ import type {
  * - revenueTrend: historical revenue data points
  * - recentProjects: recently created projects with their status
  *
- * Uses auth() to get session; returns 401 if not authenticated.
- * Returns sensible zero-state for new users.
+ * Authenticated; returns 401 if not logged in.
+ * Returns sensible zero-state metrics for new users without data.
  */
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  const userId = (session?.user as { id?: string } | undefined)?.id;
+  const rateLimited = await applyRateLimit(request, { limit: 60, windowMs: 60_000 });
+  if (rateLimited) return rateLimited;
 
-  if (!userId) {
-    return NextResponse.json(
-      { data: null, error: "Unauthorized" },
-      { status: 401 }
-    );
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
+
+  const session = await auth();
+  const sessionUser = session?.user as { provider?: string } | undefined;
+
+  // 1. Calculate Earnings stats & Revenue trend
+  const allTransactions = earningsStore.getTransactions(userId);
+  const completedTransactions = allTransactions.filter((tx) => tx.status === "completed");
+
+  const totalEarningsNum = completedTransactions.reduce((acc, tx) => acc + tx.amount, 0);
+
+  const now = new Date();
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+  const currentStart = new Date(now.getTime() - thirtyDaysMs).toISOString().split("T")[0];
+  const priorStart = new Date(now.getTime() - 2 * thirtyDaysMs).toISOString().split("T")[0];
+  const today = now.toISOString().split("T")[0];
+
+  const currentEarningsTxs = completedTransactions.filter(
+    (tx) => tx.date >= currentStart && tx.date <= today
+  );
+  const priorEarningsTxs = completedTransactions.filter(
+    (tx) => tx.date >= priorStart && tx.date < currentStart
+  );
+
+  const currentEarningsSum = currentEarningsTxs.reduce((acc, tx) => acc + tx.amount, 0);
+  const priorEarningsSum = priorEarningsTxs.reduce((acc, tx) => acc + tx.amount, 0);
+
+  let earningsTrend = 0;
+  let earningsTrendLabel = "No data yet";
+
+  if (priorEarningsSum === 0) {
+    if (currentEarningsSum > 0) {
+      earningsTrend = 100;
+      earningsTrendLabel = "+100.0% from last month";
+    } else if (totalEarningsNum > 0) {
+      earningsTrendLabel = "Steady performance";
+    }
+  } else {
+    const pct = ((currentEarningsSum - priorEarningsSum) / priorEarningsSum) * 100;
+    earningsTrend = Math.round(pct * 10) / 10;
+    earningsTrendLabel = `${earningsTrend >= 0 ? "+" : ""}${earningsTrend.toFixed(1)}% from last month`;
   }
 
-  // TODO: Replace with actual database queries
-  // For now, return zero-state data for new users
-  const stats: DashboardStats = {
-    earnings: {
-      total: "$0.00",
-      trend: 0,
-      trendLabel: "No data yet",
-    },
-    clips: {
-      total: 0,
-      trend: 0,
-      trendLabel: "No data yet",
-    },
-    platforms: {
-      total: 0,
-      trend: 0,
-      trendLabel: "No data yet",
-    },
+  const earningsStats: EarningsStats = {
+    total: `$${totalEarningsNum.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    trend: earningsTrend,
+    trendLabel: earningsTrendLabel,
   };
 
-  const revenueTrend: RevenuePoint[] = [];
+  // Group completed transactions into revenue trend data points
+  const revenueDateMap = new Map<string, number>();
+  completedTransactions.forEach((tx) => {
+    revenueDateMap.set(tx.date, (revenueDateMap.get(tx.date) ?? 0) + tx.amount);
+  });
 
-  const recentProjects: Project[] = [];
+  const revenueTrend: RevenuePoint[] = Array.from(revenueDateMap.entries())
+    .map(([date, amount]) => ({ date, amount: parseFloat(amount.toFixed(2)) }))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  const body = {
+  // 2. Calculate Clips stats & Recent Projects
+  const userJobs = await jobStore.getUserJobs(userId);
+  const totalClipsNum = userJobs.reduce(
+    (acc, j) => acc + (j.momentsFound || (j.status === "complete" ? 1 : 0)),
+    0
+  );
+
+  const currentPeriodJobs = userJobs.filter(
+    (j) => j.createdAt >= now.getTime() - thirtyDaysMs
+  );
+  const priorPeriodJobs = userJobs.filter(
+    (j) => j.createdAt >= now.getTime() - 2 * thirtyDaysMs && j.createdAt < now.getTime() - thirtyDaysMs
+  );
+
+  const currentClipsSum = currentPeriodJobs.reduce(
+    (acc, j) => acc + (j.momentsFound || 1),
+    0
+  );
+  const priorClipsSum = priorPeriodJobs.reduce(
+    (acc, j) => acc + (j.momentsFound || 1),
+    0
+  );
+
+  let clipsTrend = 0;
+  let clipsTrendLabel = "No data yet";
+
+  if (priorClipsSum === 0) {
+    if (currentClipsSum > 0) {
+      clipsTrend = 100;
+      clipsTrendLabel = "+100.0% from last month";
+    } else if (totalClipsNum > 0) {
+      clipsTrendLabel = "Steady performance";
+    }
+  } else {
+    const pct = ((currentClipsSum - priorClipsSum) / priorClipsSum) * 100;
+    clipsTrend = Math.round(pct * 10) / 10;
+    clipsTrendLabel = `${clipsTrend >= 0 ? "+" : ""}${clipsTrend.toFixed(1)}% from last month`;
+  }
+
+  const clipsStats: ClipsStats = {
+    total: totalClipsNum,
+    trend: clipsTrend,
+    trendLabel: clipsTrendLabel,
+  };
+
+  const sortedJobs = [...userJobs].sort((a, b) => b.createdAt - a.createdAt);
+  const recentProjects: Project[] = sortedJobs.slice(0, 6).map((job) => {
+    const filename = (job as { filename?: string }).filename;
+    const title = filename
+      ? filename.replace(/\.[^/.]+$/, "")
+      : `Project ${job.id.slice(0, 6)}`;
+
+    return {
+      id: job.id,
+      title,
+      clipsGenerated: job.momentsFound || 0,
+      status: job.status === "complete" ? "completed" : "processing",
+      image: "/projects/thumb1.png",
+      accent: "",
+    };
+  });
+
+  // 3. Calculate Platform Connection stats
+  const connectedPlatforms = new Set<string>();
+  allTransactions.forEach((tx) => {
+    if (tx.platform) {
+      connectedPlatforms.add(tx.platform.toLowerCase());
+    }
+  });
+  if (sessionUser?.provider) {
+    connectedPlatforms.add(sessionUser.provider.toLowerCase());
+  }
+
+  const totalPlatforms = connectedPlatforms.size;
+
+  const platformsStats: PlatformsStats = {
+    total: totalPlatforms,
+    trend: 0,
+    trendLabel: totalPlatforms > 0 ? "Active connections" : "No platforms linked",
+  };
+
+  // 4. Construct response payload
+  const stats: DashboardStats = {
+    earnings: earningsStats,
+    clips: clipsStats,
+    platforms: platformsStats,
+  };
+
+  const body: ApiResponse<{
+    stats: DashboardStats;
+    revenueTrend: RevenuePoint[];
+    recentProjects: Project[];
+  }> = {
     data: {
       stats,
       revenueTrend,
