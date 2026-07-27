@@ -13,6 +13,8 @@ import {
   Shield,
   X,
   Zap,
+  Share2,
+  BarChart3,
 } from "lucide-react";
 
 interface NavItem {
@@ -25,6 +27,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Projects", href: "/projects", icon: Video },
   { label: "Earnings", href: "/earnings", icon: DollarSign },
+  { label: "Referral", href: "/referral", icon: Share2 },
+  { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { label: "Vault", href: "/vault", icon: Layers },
   { label: "Wallet", href: "/wallet", icon: Wallet },
   { label: "Activity", href: "/activity", icon: Activity },

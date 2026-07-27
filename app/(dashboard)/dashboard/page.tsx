@@ -67,7 +67,7 @@ function StatCardSkeleton() {
 
 export default function DashboardPage() {
   const { publicKey } = useAutoStellarWallet();
-  const { data, loading, error, retry } = useDashboardData();
+  const { data, loading, error, retry } = useDashboardData({ enableStreaming: true });
   const stats = data?.stats;
   const recentProjects = data?.recentProjects ?? [];
 
