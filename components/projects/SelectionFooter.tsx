@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Copy, Download, Link2, Share2, Sparkles, Undo2, Redo2 } from "lucide-react";
 
 export interface SelectionFooterProps {
@@ -12,17 +12,36 @@ export interface SelectionFooterProps {
   redo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  onPost?: (selectedIds: string[], platforms: string[]) => void;
+  isPosting?: boolean;
+  postError?: string | null;
 }
+
+const PLATFORMS = ["youtube", "instagram", "tiktok", "twitter"];
 
 export default function SelectionFooter({
   count,
+  selectedIds,
   onMint,
   isMinting,
   undo,
   redo,
   canUndo,
   canRedo,
+  onPost,
+  isPosting,
+  postError,
 }: SelectionFooterProps) {
+  const [showPlatformPicker, setShowPlatformPicker] = useState(false);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+
+  const handlePostConfirm = () => {
+    if (onPost && selectedPlatforms.length > 0) {
+      onPost(selectedIds, selectedPlatforms);
+      setShowPlatformPicker(false);
+    }
+  };
+
   if (count === 0) return null;
 
   return (
@@ -72,9 +91,13 @@ export default function SelectionFooter({
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Export</span>
           </button>
-          <button className="flex-1 sm:flex-none px-4 py-2 rounded-xl text-sm font-medium text-white hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
-            <Share2 className="w-4 h-4" />
-            <span className="hidden sm:inline">Post</span>
+          <button
+            onClick={() => setShowPlatformPicker(true)}
+            disabled={isPosting}
+            className="flex-1 sm:flex-none px-4 py-2 rounded-xl text-sm font-medium text-white hover:bg-white/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {isPosting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Share2 className="w-4 h-4" />}
+            <span className="hidden sm:inline">{isPosting ? "Posting..." : "Post"}</span>
           </button>
           <button
             onClick={onMint}
@@ -90,6 +113,28 @@ export default function SelectionFooter({
           </button>
         </div>
       </div>
+      {/* Platform picker modal */}
+      {showPlatformPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowPlatformPicker(false)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative bg-surface border border-white/10 rounded-2xl p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-white mb-4">Post to platforms</h3>
+            <div className="space-y-2 mb-6">
+              {PLATFORMS.map((p) => (
+                <label key={p} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer">
+                  <input type="checkbox" checked={selectedPlatforms.includes(p)} onChange={() => setSelectedPlatforms((prev) => prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p])} className="accent-brand" />
+                  <span className="text-white font-medium text-sm capitalize">{p}</span>
+                </label>
+              ))}
+            </div>
+            {postError && <p className="text-error text-xs mb-3">{postError}</p>}
+            <div className="flex gap-3">
+              <button onClick={() => setShowPlatformPicker(false)} className="flex-1 px-4 py-2 rounded-xl border border-white/10 text-white text-sm font-medium hover:bg-white/5">Cancel</button>
+              <button onClick={handlePostConfirm} disabled={selectedPlatforms.length === 0 || isPosting} className="flex-1 px-4 py-2 rounded-xl bg-brand text-black text-sm font-bold hover:bg-brand-hover disabled:opacity-50">Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
-import { Check, Edit2, Play, Sparkles } from "lucide-react";
+import React, { useRef, useEffect, useState } from "react";
+import { Check, Edit2, Play, Sparkles, BarChart3, Download, Loader2 } from "lucide-react";
+import analytics from "@/app/lib/analytics";
 
 export interface Clip {
   id: string;
@@ -58,31 +59,37 @@ export default function ClipGrid({
   hasMore,
 }: ClipGridProps) {
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!hasMore || loadingNextPage) return;
-
     const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          onLoadMore();
-        }
-      },
+      (entries) => { if (entries[0].isIntersecting) onLoadMore(); },
       { rootMargin: "100px" }
     );
-
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
-    }
-
+    if (loadMoreRef.current) observer.observe(loadMoreRef.current);
     return () => observer.disconnect();
   }, [hasMore, loadingNextPage, onLoadMore]);
 
-  // Handle keyboard interaction for grid items
   const handleKeyDown = (e: React.KeyboardEvent, id: string) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      onSelect(id);
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(id); }
+  };
+
+  const handleDownload = async (clipId: string) => {
+    setDownloadingId(clipId);
+    try {
+      const res = await fetch(`/api/clips/${clipId}/download`);
+      if (!res.ok) throw new Error("Download failed");
+      const { url } = await res.json();
+      analytics.trackEvent("clip_downloaded", { clipId });
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `clip-${clipId}.mp4`;
+      a.click();
+    } catch {
+      // silently fail
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -112,140 +119,62 @@ export default function ClipGrid({
 
   return (
     <div className="space-y-6">
-      {/* Grid Header Controls */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white/5 p-4 rounded-2xl">
         <div className="flex items-center gap-3">
-          <button
-            onClick={selectedIds.length === clips.length ? onSelectNone : onSelectAll}
-            className="text-sm font-medium text-white hover:text-brand transition-colors"
-          >
+          <button onClick={selectedIds.length === clips.length ? onSelectNone : onSelectAll} className="text-sm font-medium text-white hover:text-brand transition-colors">
             {selectedIds.length === clips.length ? "Deselect All" : "Select All"}
           </button>
           <span className="text-white/20">|</span>
-          <span className="text-sm text-muted-foreground">
-            {selectedIds.length} of {totalClips} selected
-          </span>
+          <span className="text-sm text-muted-foreground">{selectedIds.length} of {totalClips} selected</span>
         </div>
-        
         <div className="flex items-center gap-3">
-          <button
-            onClick={onToggleRecommendations}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              aiRecommendations ? "bg-brand/20 text-brand" : "bg-white/5 text-muted-foreground hover:bg-white/10"
-            }`}
-          >
-            <Sparkles className="w-4 h-4" />
-            AI Recommendations
+          <button onClick={onToggleRecommendations} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${aiRecommendations ? "bg-brand/20 text-brand" : "bg-white/5 text-muted-foreground hover:bg-white/10"}`}>
+            <Sparkles className="w-4 h-4" /> AI Recommendations
           </button>
-          {aiRecommendations && (
-            <button
-              onClick={onAutoSelect}
-              className="text-sm font-medium text-brand hover:text-brand-hover transition-colors"
-            >
-              Select Top Clips
-            </button>
-          )}
+          {aiRecommendations && <button onClick={onAutoSelect} className="text-sm font-medium text-brand hover:text-brand-hover">Select Top Clips</button>}
         </div>
       </div>
 
-      {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {clips.map((clip) => {
           const isSelected = selectedIds.includes(clip.id);
           const isRecommended = aiRecommendations && clip.score >= recommendationThreshold;
 
           return (
-            <div
-              key={clip.id}
-              className={`group relative rounded-2xl overflow-hidden transition-all duration-300 border-2 ${
-                isSelected ? "border-brand shadow-[0_0_20px_rgba(var(--brand),0.3)]" : "border-transparent hover:border-white/20"
-              }`}
-            >
-              {/* Thumbnail Area */}
-              <div 
-                className="aspect-[9/16] w-full bg-black relative cursor-pointer"
-                onClick={() => onSelect(clip.id)}
-                role="checkbox"
-                aria-checked={isSelected}
-                tabIndex={0}
-                onKeyDown={(e) => handleKeyDown(e, clip.id)}
-              >
-                <img
-                  src={clip.thumbnail}
-                  alt={clip.title}
-                  className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-                />
-                
-                {/* Gradient Overlay */}
+            <div key={clip.id} className={`group relative rounded-2xl overflow-hidden transition-all duration-300 border-2 ${isSelected ? "border-brand shadow-[0_0_20px_rgba(var(--brand),0.3)]" : "border-transparent hover:border-white/20"}`}>
+              <div className="aspect-[9/16] w-full bg-black relative cursor-pointer" onClick={() => onSelect(clip.id)} role="checkbox" aria-checked={isSelected} tabIndex={0} onKeyDown={(e) => handleKeyDown(e, clip.id)}>
+                <img src={clip.thumbnail} alt={clip.title} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
-
-                {/* Badges */}
                 <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
-                  <div className={`px-2 py-1 rounded-md text-xs font-bold ${
-                    clip.scoreKey === 'high' ? 'bg-green-500/80 text-white' : 
-                    clip.scoreKey === 'medium' ? 'bg-yellow-500/80 text-white' : 
-                    'bg-red-500/80 text-white'
-                  }`}>
-                    Score: {clip.score}
-                  </div>
-                  {isRecommended && (
-                    <div className="bg-brand text-black px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1 shadow-lg animate-pulse">
-                      <Sparkles className="w-3 h-3" />
-                      Top Pick
-                    </div>
-                  )}
+                  <div className={`px-2 py-1 rounded-md text-xs font-bold ${clip.scoreKey === 'high' ? 'bg-green-500/80 text-white' : clip.scoreKey === 'medium' ? 'bg-yellow-500/80 text-white' : 'bg-red-500/80 text-white'}`}>Score: {clip.score}</div>
+                  {isRecommended && <div className="bg-brand text-black px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1 shadow-lg animate-pulse"><Sparkles className="w-3 h-3" /> Top Pick</div>}
                 </div>
-
-                {/* Selection Checkbox */}
-                <div className={`absolute top-3 right-3 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                  isSelected ? "bg-brand border-brand" : "border-white/50 bg-black/50 group-hover:border-white"
-                } ${isRecommended ? "top-10" : ""}`}>
+                <div className={`absolute top-3 right-3 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? "bg-brand border-brand" : "border-white/50 bg-black/50 group-hover:border-white"} ${isRecommended ? "top-10" : ""}`}>
                   {isSelected && <Check className="w-4 h-4 text-black" />}
                 </div>
-
-                {/* Clip Info */}
                 <div className="absolute bottom-3 left-3 right-3">
                   <h4 className="text-white font-bold text-sm mb-1 line-clamp-2">{clip.title}</h4>
-                  <div className="flex items-center gap-2 text-xs text-white/70">
-                    <span>{clip.duration}</span>
-                    <span>•</span>
-                    <span>{clip.resolution}</span>
-                  </div>
+                  <div className="flex items-center gap-2 text-xs text-white/70"><span>{clip.duration}</span><span>•</span><span>{clip.resolution}</span></div>
                 </div>
               </div>
 
-              {/* Action Bar */}
-              <div className="absolute bottom-0 left-0 right-0 p-3 bg-black/90 translate-y-full group-hover:translate-y-0 transition-transform flex items-center justify-center gap-2 backdrop-blur-md">
-                <button
-                  onClick={(e) => { e.stopPropagation(); onPreview(clip.id); }}
-                  className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-                  aria-label="Preview clip"
-                >
-                  <Play className="w-4 h-4" />
-                  Preview
+              <div className="absolute bottom-0 left-0 right-0 p-3 bg-black/90 translate-y-full group-hover:translate-y-0 transition-transform flex items-stretch gap-2 backdrop-blur-md">
+                <button onClick={(e) => { e.stopPropagation(); onPreview(clip.id); }} className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors" aria-label="Preview clip"><Play className="w-4 h-4" /> Preview</button>
+                <button onClick={(e) => { e.stopPropagation(); onEdit(clip.id); }} className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors" aria-label="Edit clip"><Edit2 className="w-4 h-4" /> Edit</button>
+                <button onClick={(e) => { e.stopPropagation(); handleDownload(clip.id); }} disabled={downloadingId === clip.id} className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50" aria-label="Download clip">
+                  {downloadingId === clip.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  {downloadingId === clip.id ? "..." : "Download"}
                 </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onEdit(clip.id); }}
-                  className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-                  aria-label="Edit clip"
-                >
-                  <Edit2 className="w-4 h-4" />
-                  Edit
-                </button>
+                <a href={`/analytics?clipId=${clip.id}`} onClick={(e) => e.stopPropagation()} className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors" aria-label="View analytics"><BarChart3 className="w-4 h-4" /> Analytics</a>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Loading More Indicator */}
       {(hasMore || loadingNextPage) && (
         <div ref={loadMoreRef} className="py-8 flex justify-center">
-          {loadingNextPage ? (
-            <div className="w-8 h-8 border-4 border-brand border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <div className="w-8 h-8" />
-          )}
+          {loadingNextPage ? <div className="w-8 h-8 border-4 border-brand border-t-transparent rounded-full animate-spin" /> : <div className="w-8 h-8" />}
         </div>
       )}
     </div>

@@ -63,6 +63,8 @@ export default function ProjectsPage() {
   const currentPage = filters.page;
   const PAGE_SIZE = 20;
   const [loadingNextPage, setLoadingNextPage] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
 
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [aiRecommendations, setAiRecommendations] = useState(false);
@@ -241,6 +243,33 @@ export default function ProjectsPage() {
     [selectedIds, startTransformBatch, transformSubmitError, showToast, setSelectedIds],
   );
 
+  const handlePost = useCallback(async (clipIds: string[], platforms: string[]) => {
+    setIsPosting(true);
+    setPostError(null);
+    try {
+      const res = await fetch("/api/clips/post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clipIds, platforms }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Posting failed");
+      if (Array.isArray(data.failed) && data.failed.length > 0) {
+        setPostError(`${data.failed.length} post${data.failed.length > 1 ? "s" : ""} failed`);
+        data.failed.forEach((f: any) => console.warn(f));
+      }
+      if (Array.isArray(data.posted) && data.posted.length > 0) {
+        showToast(`Posted ${data.posted.length} clip${data.posted.length > 1 ? "s" : ""} successfully`, "success");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Posting failed";
+      setPostError(msg);
+      showToast(msg, "error");
+    } finally {
+      setIsPosting(false);
+    }
+  }, [showToast]);
+
   return (
     <>
       {/* Mobile Filter Drawer Overlay */}
@@ -327,8 +356,9 @@ export default function ProjectsPage() {
               redo={redo}
               canUndo={canUndo}
               canRedo={canRedo}
-              onTransform={handleOpenTransformModal}
-              isTransforming={isTransformSubmitting}
+              onPost={handlePost}
+              isPosting={isPosting}
+              postError={postError}
             />
           </div>
         </div>
