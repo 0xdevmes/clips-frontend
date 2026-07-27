@@ -6,6 +6,11 @@ import { parseRequestJson } from "@/app/lib/parseRequestJson";
 import { dispatchJob } from "@/app/lib/aiBackend";
 import { logger } from "@/app/lib/logger";
 import { randomUUID } from "crypto";
+import {
+  validateAnimeOptions,
+  DEFAULT_ANIME_OPTIONS,
+  type AnimeTransformOptions,
+} from "@/app/lib/animeTransform";
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -30,6 +35,11 @@ export interface TransformOptions {
   resolution?: string;
   /** Whether to preserve the original audio track */
   preserveAudio?: boolean;
+  /**
+   * Anime-specific tuning options. Only used when style === "anime".
+   * Falls back to DEFAULT_ANIME_OPTIONS when omitted.
+   */
+  animeOptions?: AnimeTransformOptions;
 }
 
 interface BatchTransformRequestBody {
@@ -95,6 +105,20 @@ function validateBody(
       ...(typeof o.resolution === "string" ? { resolution: o.resolution } : {}),
       ...(typeof o.preserveAudio === "boolean" ? { preserveAudio: o.preserveAudio } : {}),
     };
+
+    // Validate anime-specific options when style is "anime"
+    if (b.style === "anime" && o.animeOptions !== undefined) {
+      const animeResult = validateAnimeOptions(o.animeOptions);
+      if (!animeResult.valid) {
+        return { valid: false, error: animeResult.errors.join(" ") };
+      }
+      options.animeOptions = animeResult.data;
+    }
+  }
+
+  // Default anime options when style is anime and none were provided
+  if (b.style === "anime" && !options?.animeOptions) {
+    options = { ...options, animeOptions: DEFAULT_ANIME_OPTIONS };
   }
 
   return {
@@ -168,7 +192,7 @@ export async function POST(request: NextRequest) {
       transformStyle: style,
       sourceClipKey,
       // Pass through any extra options the AI backend may understand
-      ...(options ? { transformOptions: options } : {}),
+      ...(options ? { transformOptions: options.animeOptions ?? options } : {}),
     });
 
     if (!dispatchResult.dispatched) {

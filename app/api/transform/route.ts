@@ -6,6 +6,11 @@ import { parseRequestJson } from "@/app/lib/parseRequestJson";
 import { dispatchJob } from "@/app/lib/aiBackend";
 import { logger } from "@/app/lib/logger";
 import { randomUUID } from "crypto";
+import {
+  validateAnimeOptions,
+  DEFAULT_ANIME_OPTIONS,
+  type AnimeTransformOptions,
+} from "@/app/lib/animeTransform";
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -22,6 +27,7 @@ interface TransformRequestBody {
   clipId: string;
   style: string;
   userId?: string;
+  transformOptions?: AnimeTransformOptions;
 }
 
 function validateBody(
@@ -42,12 +48,24 @@ function validateBody(
     };
   }
 
+  // Validate anime-specific options when style is "anime"
+  let transformOptions: AnimeTransformOptions | undefined;
+  if (b.style.toLowerCase() === "anime") {
+    const raw = b.transformOptions ?? DEFAULT_ANIME_OPTIONS;
+    const result = validateAnimeOptions(raw);
+    if (!result.valid) {
+      return { valid: false, error: result.errors.join(" ") };
+    }
+    transformOptions = result.data;
+  }
+
   return {
     valid: true,
     data: {
       clipId: b.clipId.trim(),
       style: b.style.toLowerCase(),
       userId: typeof b.userId === "string" ? b.userId : undefined,
+      transformOptions,
     },
   };
 }
@@ -113,6 +131,7 @@ export async function POST(request: NextRequest) {
     callbackUrl,
     transformStyle: style,
     sourceClipKey,
+    ...(validation.data.transformOptions ? { transformOptions: validation.data.transformOptions } : {}),
   });
 
   if (!dispatchResult.dispatched) {

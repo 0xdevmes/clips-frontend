@@ -1,3 +1,4 @@
+import type { AnimeTransformOptions } from "@/app/lib/animeTransform";
 import { logger } from "@/app/lib/logger";
 
 /**
@@ -54,6 +55,11 @@ export interface DispatchJobPayload {
    * job is a style-transfer transformation rather than a raw upload.
    */
   sourceClipKey?: string;
+  /**
+   * Optional: fine-grained tuning options for anime transformations.
+   * Only populated when transformStyle === "anime".
+   */
+  transformOptions?: AnimeTransformOptions;
 }
 
 /**
