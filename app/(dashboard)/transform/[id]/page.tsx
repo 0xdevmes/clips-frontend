@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import {
   AlertCircle,
@@ -341,13 +342,13 @@ export default function TransformProgressPage() {
           <div className="bg-surface border border-white/5 rounded-3xl p-8 space-y-7">
             {/* Clip thumbnail placeholder */}
             <div className="flex items-center gap-4">
-              <div className="w-20 h-14 rounded-xl bg-input border border-white/5 flex items-center justify-center shrink-0">
+              <div className="relative w-20 h-14 rounded-xl bg-input border border-white/5 flex items-center justify-center shrink-0 overflow-hidden">
                 {previewUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={previewUrl}
                     alt="Latest preview frame"
-                    className="w-full h-full object-cover rounded-xl"
+                    fill
+                    className="object-cover rounded-xl"
                   />
                 ) : (
                   <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
@@ -393,12 +394,12 @@ export default function TransformProgressPage() {
                 <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                   Latest Preview Frame
                 </p>
-                <div className="rounded-2xl overflow-hidden border border-white/10 bg-black aspect-video flex items-center justify-center">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-black aspect-video flex items-center justify-center">
+                  <Image
                     src={previewUrl}
                     alt="Preview frame from AI transformation"
-                    className="w-full h-full object-contain"
+                    fill
+                    className="object-contain"
                   />
                 </div>
               </div>

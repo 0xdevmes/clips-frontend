@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import { sanitize } from "@/app/lib/sanitize";
 
 interface NFTCardProps {
@@ -45,10 +46,11 @@ export default function NFTCard({ id, title, thumbnail, viralityScore, mintStatu
     <div className="bg-input border border-white/10 rounded-[20px] overflow-hidden hover:border-brand/50 transition-colors">
       {/* Thumbnail */}
       <div className="aspect-video w-full relative">
-        <img
+        <Image
           src={thumbnail}
           alt={sanitize(title)}
-          className="w-full h-full object-cover"
+          fill
+          className="object-cover"
         />
         <div className="absolute top-3 right-3">
           <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${getStatusColor(mintStatus)}`}>

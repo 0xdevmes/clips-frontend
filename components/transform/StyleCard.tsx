@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import { Clock, CheckCircle2 } from "lucide-react";
 import { sanitize } from "@/app/lib/sanitize";
 import type { TransformStyle } from "@/app/api/transform/styles/route";
@@ -67,15 +68,14 @@ export function StyleCard({
     >
       {/* ── Thumbnail ── */}
       <div className="relative w-full aspect-video overflow-hidden bg-background">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={style.thumbnail}
           alt={`${sanitize(style.label)} style preview`}
+          fill
           className={[
-            "w-full h-full object-cover transition-transform duration-300",
+            "object-cover transition-transform duration-300",
             !isDisabled && !isSelected ? "group-hover:scale-105" : "",
           ].join(" ")}
-          loading="lazy"
         />
 
         {/* Selected overlay checkmark */}

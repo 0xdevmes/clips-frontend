@@ -171,6 +171,7 @@ export interface UserProfile {
   avatarUrl: string | null;
   plan: "free" | "pro" | "enterprise";
   planUsagePercent: number;
+  transformQuotaRemaining?: number;
 }
 
 export interface UserState {

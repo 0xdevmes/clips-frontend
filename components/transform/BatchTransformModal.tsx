@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { X, Wand2, Loader2, Sparkles } from "lucide-react";
 import { StylePicker } from "@/components/transform/StylePicker";
 import { AnimeTransformControls } from "@/components/transform/AnimeTransformControls";
@@ -57,11 +58,11 @@ function PreviewThumbnail({ previewUrl, isLoading, error }: PreviewThumbnailProp
 
       <div className="relative aspect-video bg-black flex items-center justify-center">
         {previewUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={previewUrl}
             alt="Low-res anime style preview"
-            className="w-full h-full object-contain"
+            fill
+            className="object-contain"
           />
         )}
         {isLoading && !previewUrl && (

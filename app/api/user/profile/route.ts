@@ -14,7 +14,14 @@ export const UserProfileResponseSchema = z.object({
   avatarUrl: z.string().nullable(),
   plan: z.enum(["free", "pro", "enterprise"]),
   planUsagePercent: z.number().min(0).max(100),
+  transformQuotaRemaining: z.number().optional(),
 });
+
+function getQuotaRemaining(plan: string, usagePercent: number): number {
+  const limits: Record<string, number> = { free: 10, pro: 100, enterprise: 1000 };
+  const limit = limits[plan] ?? 10;
+  return Math.max(0, limit - Math.round((usagePercent / 100) * limit));
+}
 
 export const PatchUserProfileSchema = z.object({
   name: z.string().optional(),
@@ -36,13 +43,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    const plan = user.plan as "free" | "pro" | "enterprise";
+    const transformQuotaRemaining = getQuotaRemaining(plan, user.planUsagePercent);
+
     return NextResponse.json({
       id: user.id,
       name: user.name || "User",
       email: user.email,
       avatarUrl: user.avatarUrl,
-      plan: user.plan as "free" | "pro" | "enterprise",
+      plan,
       planUsagePercent: user.planUsagePercent,
+      transformQuotaRemaining,
     });
   } catch (error) {
     Sentry.captureException(error);
@@ -82,13 +93,17 @@ export async function PATCH(request: NextRequest) {
       },
     });
 
+    const plan = updatedUser.plan as "free" | "pro" | "enterprise";
+    const transformQuotaRemaining = getQuotaRemaining(plan, updatedUser.planUsagePercent);
+
     return NextResponse.json({
       id: updatedUser.id,
       name: updatedUser.name || "User",
       email: updatedUser.email,
       avatarUrl: updatedUser.avatarUrl,
-      plan: updatedUser.plan as "free" | "pro" | "enterprise",
+      plan,
       planUsagePercent: updatedUser.planUsagePercent,
+      transformQuotaRemaining,
     });
   } catch (error) {
     Sentry.captureException(error);
