@@ -78,6 +78,25 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  {
+    // Build-time guard: no app page or component may import from mockApi.
+    // This prevents mock data from accidentally shipping to production.
+    files: ["app/**/*.ts", "app/**/*.tsx", "components/**/*.ts", "components/**/*.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/mockApi*", "**/mockApi/**"],
+              message:
+                "App pages and components must not import from mockApi. Replace with real API calls.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

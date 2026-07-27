@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import VaultSidebar from "@/components/vault/VaultSidebar";
 import NFTGrid from "@/components/vault/NFTGrid";
 import MintConfigForm from "@/components/projects/MintConfigForm";
-import { MockApi } from "@/__mocks__/app/lib/mockApi";
 import { ChevronRight } from "lucide-react";
 
 export default function VaultPage() {
