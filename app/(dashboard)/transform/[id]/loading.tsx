@@ -1,12 +1,11 @@
 import React from "react";
 import Skeleton from "@/components/ui/Skeleton";
+import BackgroundOrbs from "@/components/layout/BackgroundOrbs";
 
 export default function Loading() {
   return (
     <div className="min-h-screen bg-background text-white flex flex-col font-sans relative overflow-hidden">
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-brand/5 blur-[120px] rounded-full" />
-      </div>
+      <BackgroundOrbs variant="default" />
 
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-16 relative z-10">
         <div className="w-full max-w-3xl space-y-10">

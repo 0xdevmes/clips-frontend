@@ -1,6 +1,7 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import BackgroundOrbs from "@/components/layout/BackgroundOrbs";
 
 // In a real implementation, this would validate the shareId against your database
 // For now, we'll accept any shareId format
@@ -33,7 +34,9 @@ export default function SharePage({ params }: { params: { shareId: string } }) {
   const shareUrl = typeof window !== 'undefined' ? window.location.href : `https://clipcash.ai/share/${params.shareId}`;
   
   return (
-    <div className="min-h-screen bg-background text-white font-sans flex flex-col">
+    <div className="min-h-screen bg-background text-white font-sans flex flex-col relative overflow-hidden">
+      <BackgroundOrbs variant="subtle" />
+
       {/* Navigation */}
       <nav className="w-full px-6 py-4 border-b border-border">
         <div className="max-w-6xl mx-auto flex items-center justify-between">

@@ -2,7 +2,6 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import SectionHeader from "@/components/platforms/SectionHeader";
 import PlatformCard from "@/components/platforms/PlatformCard";
 import HelpBanner from "@/components/platforms/HelpBanner";
@@ -21,6 +20,7 @@ import { useWallet, truncateAddress } from "@/components/wallet/WalletProvider";
 import Skeleton from "@/components/ui/Skeleton";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useToast } from "@/hooks/useToast";
+import { useSidebar } from "../layout";
 
 /* ================= TYPES ================= */
 
@@ -64,8 +64,8 @@ export default function PlatformsPage() {
   const { isLoading: authLoading } = useAuth();
   const { data: session, status: sessionStatus } = useSession();
   const { showToast } = useToast();
+  const { setSidebarOpen } = useSidebar();
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [connectingId, setConnectingId] = useState<string | null>(null);
 
@@ -78,10 +78,9 @@ export default function PlatformsPage() {
     connectPhantom,
     disconnect: disconnectWallet,
     clearError: clearWalletError,
-    isRestoringSession,
   } = useWallet();
 
-  const pageLoading = authLoading || isRestoringSession || sessionStatus === "loading";
+  const pageLoading = authLoading || sessionStatus === "loading";
 
   /* ================= HANDLERS ================= */
 
@@ -210,42 +209,27 @@ export default function PlatformsPage() {
   /* ================= UI ================= */
 
   return (
-    <div className="flex min-h-screen bg-background text-white">
-      <DashboardSidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
-
-      <main className="flex-1">
-        {/* NAV */}
-        <div className="flex justify-between p-6 border-b border-white/10">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setSidebarOpen(true)}>
-              <Menu />
-            </button>
-
-            <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-full">
-              <Search className="w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search platforms..."
-                value={search}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setSearch(e.target.value)
-                }
-                className="bg-transparent outline-none text-sm"
-              />
-            </div>
-          </div>
-
-          <Bell />
+    <div className="dashboard-main space-y-12 max-w-[1400px] mx-auto w-full p-6 md:p-8">
+      {/* Header with search */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h1 className="text-[28px] sm:text-[32px] font-extrabold tracking-tight text-white">
+          Connect <span className="text-brand">Accounts</span>
+        </h1>
+        <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-full w-full sm:w-auto">
+          <Search className="w-4 h-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search platforms..."
+            value={search}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setSearch(e.target.value)
+            }
+            className="bg-transparent outline-none text-sm text-white placeholder:text-white/40 w-full"
+          />
         </div>
+      </div>
 
-        <div className="p-10 space-y-12">
-          <h1 className="text-4xl font-bold">
-            Connect <span className="text-brand">Accounts</span>
-          </h1>
-
+      <div className="space-y-12">
           {pageLoading ? (
             <>
               <section className="space-y-4">
@@ -320,7 +304,6 @@ export default function PlatformsPage() {
           <HelpBanner />
           <PlatformsFooter />
         </div>
-      </main>
-    </div>
+      </div>
   );
 }
