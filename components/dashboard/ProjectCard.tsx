@@ -1,3 +1,3 @@
-export default function ProjectCard() {
+export default function ProjectCard(_props?: any) {
   return null;
 }

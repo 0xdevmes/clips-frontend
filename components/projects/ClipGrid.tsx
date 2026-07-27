@@ -127,6 +127,7 @@ export default function ClipGrid({
           <span className="text-white/20">|</span>
           <span className="text-sm text-muted-foreground">{selectedIds.length} of {totalClips} selected</span>
         </div>
+
         <div className="flex items-center gap-3">
           <button onClick={onToggleRecommendations} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${aiRecommendations ? "bg-brand/20 text-brand" : "bg-white/5 text-muted-foreground hover:bg-white/10"}`}>
             <Sparkles className="w-4 h-4" /> AI Recommendations
@@ -152,6 +153,50 @@ export default function ClipGrid({
                 <div className={`absolute top-3 right-3 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? "bg-brand border-brand" : "border-white/50 bg-black/50 group-hover:border-white"} ${isRecommended ? "top-10" : ""}`}>
                   {isSelected && <Check className="w-4 h-4 text-black" />}
                 </div>
+            <div
+              key={clip.id}
+              className={`group relative rounded-2xl overflow-hidden transition-all duration-300 border-2 ${
+                isSelected ? "border-brand shadow-[0_0_20px_rgba(var(--brand),0.3)]" : "border-transparent hover:border-white/20"
+              }`}
+            >
+              <div
+                className="aspect-[9/16] w-full bg-black relative cursor-pointer"
+                onClick={() => onSelect(clip.id)}
+                role="checkbox"
+                aria-checked={isSelected}
+                tabIndex={0}
+                onKeyDown={(e) => handleKeyDown(e, clip.id)}
+              >
+                <img
+                  src={clip.thumbnail}
+                  alt={clip.title}
+                  className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                />
+
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
+
+                <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
+                  <div className={`px-2 py-1 rounded-md text-xs font-bold ${
+                    clip.scoreKey === 'high' ? 'bg-green-500/80 text-white' :
+                    clip.scoreKey === 'medium' ? 'bg-yellow-500/80 text-white' :
+                    'bg-red-500/80 text-white'
+                  }`}>
+                    Score: {clip.score}
+                  </div>
+                  {isRecommended && (
+                    <div className="bg-brand text-black px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1 shadow-lg animate-pulse">
+                      <Sparkles className="w-3 h-3" />
+                      Top Pick
+                    </div>
+                  )}
+                </div>
+
+                <div className={`absolute top-3 right-3 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                  isSelected ? "bg-brand border-brand" : "border-white/50 bg-black/50 group-hover:border-white"
+                } ${isRecommended ? "top-10" : ""}`}>
+                  {isSelected && <Check className="w-4 h-4 text-black" />}
+                </div>
+
                 <div className="absolute bottom-3 left-3 right-3">
                   <h4 className="text-white font-bold text-sm mb-1 line-clamp-2">{clip.title}</h4>
                   <div className="flex items-center gap-2 text-xs text-white/70"><span>{clip.duration}</span><span>•</span><span>{clip.resolution}</span></div>
@@ -166,6 +211,32 @@ export default function ClipGrid({
                   {downloadingId === clip.id ? "..." : "Download"}
                 </button>
                 <a href={`/analytics?clipId=${clip.id}`} onClick={(e) => e.stopPropagation()} className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors" aria-label="View analytics"><BarChart3 className="w-4 h-4" /> Analytics</a>
+              <div className="absolute bottom-0 left-0 right-0 p-3 bg-black/90 translate-y-full group-hover:translate-y-0 transition-transform flex items-center justify-center gap-2 backdrop-blur-md">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onPreview(clip.id); }}
+                  className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                  aria-label="Preview clip"
+                >
+                  <Play className="w-4 h-4" />
+                  Preview
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onEdit(clip.id); }}
+                  className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                  aria-label="Edit clip"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  Edit
+                </button>
+                <a
+                  href={`/analytics?clipId=${clip.id}`}
+                  onClick={(e) => e.stopPropagation();}
+                  className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                  aria-label="View analytics"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  Analytics
+                </a>
               </div>
             </div>
           );
