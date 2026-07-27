@@ -1,7 +1,25 @@
 import { NextResponse } from "next/server";
 import type { ApiResponse } from "@/app/api/types";
+import {
+  ANIME_SUB_STYLE_META,
+  ANIME_SUB_STYLES,
+  OUTLINE_THICKNESS_META,
+  OUTLINE_THICKNESSES,
+  BACKGROUND_STYLE_META,
+  BACKGROUND_STYLES,
+  type AnimeSubStyle,
+  type OutlineThickness,
+  type BackgroundStyle,
+} from "@/app/lib/animeTransform";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+/** Metadata about available sub-style variants (anime only, for now). */
+export interface TransformStyleVariants {
+  subStyles: Array<{ value: AnimeSubStyle; label: string; description: string }>;
+  outlineThicknesses: Array<{ value: OutlineThickness; label: string }>;
+  backgroundStyles: Array<{ value: BackgroundStyle; label: string; description: string }>;
+}
 
 export interface TransformStyle {
   /** Stable machine identifier, e.g. "anime" */
@@ -14,6 +32,11 @@ export interface TransformStyle {
   thumbnail: string;
   /** Estimated processing time in seconds */
   avgDurationSeconds: number;
+  /**
+   * Optional sub-style / variant metadata.
+   * Only present for styles that expose tuning controls (currently just "anime").
+   */
+  variants?: TransformStyleVariants;
 }
 
 // ─── Style catalogue ──────────────────────────────────────────────────────────
@@ -31,6 +54,13 @@ const STYLES: TransformStyle[] = [
     description: "Bold outlines, vivid colours, cel-shaded look",
     thumbnail: "/styles/anime.jpg",
     avgDurationSeconds: 45,
+    // Expose the full tuning surface so clients can build the controls
+    // without a separate round-trip.
+    variants: {
+      subStyles: ANIME_SUB_STYLES.map((s) => ANIME_SUB_STYLE_META[s]),
+      outlineThicknesses: OUTLINE_THICKNESSES.map((t) => OUTLINE_THICKNESS_META[t]),
+      backgroundStyles: BACKGROUND_STYLES.map((b) => BACKGROUND_STYLE_META[b]),
+    },
   },
   {
     name: "cinematic",

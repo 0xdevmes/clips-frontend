@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useTransformStore } from "@/app/store/transformStore";
 import type { BatchTransformJob, BatchTransformState } from "@/app/store/types";
+import type { AnimeTransformOptions } from "@/app/lib/animeTransform";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -10,6 +11,8 @@ export interface TransformOptions {
   quality?: "draft" | "standard" | "high";
   resolution?: string;
   preserveAudio?: boolean;
+  /** Anime-specific tuning options. Only used when style === "anime". */
+  animeOptions?: AnimeTransformOptions;
 }
 
 interface BatchTransformApiResult {
