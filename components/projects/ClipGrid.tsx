@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect } from "react";
-import { Check, Edit2, Play, Sparkles } from "lucide-react";
+import { Check, Edit2, Play, Sparkles, BarChart3 } from "lucide-react";
 
 export interface Clip {
   id: string;
@@ -78,7 +78,6 @@ export default function ClipGrid({
     return () => observer.disconnect();
   }, [hasMore, loadingNextPage, onLoadMore]);
 
-  // Handle keyboard interaction for grid items
   const handleKeyDown = (e: React.KeyboardEvent, id: string) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -112,7 +111,6 @@ export default function ClipGrid({
 
   return (
     <div className="space-y-6">
-      {/* Grid Header Controls */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white/5 p-4 rounded-2xl">
         <div className="flex items-center gap-3">
           <button
@@ -126,7 +124,7 @@ export default function ClipGrid({
             {selectedIds.length} of {totalClips} selected
           </span>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <button
             onClick={onToggleRecommendations}
@@ -148,7 +146,6 @@ export default function ClipGrid({
         </div>
       </div>
 
-      {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {clips.map((clip) => {
           const isSelected = selectedIds.includes(clip.id);
@@ -161,8 +158,7 @@ export default function ClipGrid({
                 isSelected ? "border-brand shadow-[0_0_20px_rgba(var(--brand),0.3)]" : "border-transparent hover:border-white/20"
               }`}
             >
-              {/* Thumbnail Area */}
-              <div 
+              <div
                 className="aspect-[9/16] w-full bg-black relative cursor-pointer"
                 onClick={() => onSelect(clip.id)}
                 role="checkbox"
@@ -175,15 +171,13 @@ export default function ClipGrid({
                   alt={clip.title}
                   className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                 />
-                
-                {/* Gradient Overlay */}
+
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
 
-                {/* Badges */}
                 <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
                   <div className={`px-2 py-1 rounded-md text-xs font-bold ${
-                    clip.scoreKey === 'high' ? 'bg-green-500/80 text-white' : 
-                    clip.scoreKey === 'medium' ? 'bg-yellow-500/80 text-white' : 
+                    clip.scoreKey === 'high' ? 'bg-green-500/80 text-white' :
+                    clip.scoreKey === 'medium' ? 'bg-yellow-500/80 text-white' :
                     'bg-red-500/80 text-white'
                   }`}>
                     Score: {clip.score}
@@ -196,14 +190,12 @@ export default function ClipGrid({
                   )}
                 </div>
 
-                {/* Selection Checkbox */}
                 <div className={`absolute top-3 right-3 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
                   isSelected ? "bg-brand border-brand" : "border-white/50 bg-black/50 group-hover:border-white"
                 } ${isRecommended ? "top-10" : ""}`}>
                   {isSelected && <Check className="w-4 h-4 text-black" />}
                 </div>
 
-                {/* Clip Info */}
                 <div className="absolute bottom-3 left-3 right-3">
                   <h4 className="text-white font-bold text-sm mb-1 line-clamp-2">{clip.title}</h4>
                   <div className="flex items-center gap-2 text-xs text-white/70">
@@ -214,7 +206,6 @@ export default function ClipGrid({
                 </div>
               </div>
 
-              {/* Action Bar */}
               <div className="absolute bottom-0 left-0 right-0 p-3 bg-black/90 translate-y-full group-hover:translate-y-0 transition-transform flex items-center justify-center gap-2 backdrop-blur-md">
                 <button
                   onClick={(e) => { e.stopPropagation(); onPreview(clip.id); }}
@@ -232,13 +223,21 @@ export default function ClipGrid({
                   <Edit2 className="w-4 h-4" />
                   Edit
                 </button>
+                <a
+                  href={`/analytics?clipId=${clip.id}`}
+                  onClick={(e) => e.stopPropagation();}
+                  className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                  aria-label="View analytics"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  Analytics
+                </a>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Loading More Indicator */}
       {(hasMore || loadingNextPage) && (
         <div ref={loadMoreRef} className="py-8 flex justify-center">
           {loadingNextPage ? (
