@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/lib/auth";
 import { logger } from "@/app/lib/logger";
 import { checkCsrf } from "@/app/lib/csrf";
+import { parseRequestJson } from "@/app/lib/parseRequestJson";
 import { passkeyStore } from "@/app/api/auth/passkey/passkeyStore";
 
 export async function GET() {
@@ -38,7 +39,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { credentialId, publicKey } = await request.json();
+    const parsedBody = await parseRequestJson<{ credentialId?: string; publicKey?: string }>(
+      request
+    );
+    if (!parsedBody.ok) return parsedBody.response;
+    const { credentialId, publicKey } = parsedBody.body;
 
     if (!credentialId) {
       return NextResponse.json({ error: "Missing credentialId" }, { status: 400 });

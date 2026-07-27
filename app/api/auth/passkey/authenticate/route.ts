@@ -6,6 +6,7 @@ import {
 import { auth } from "@/app/lib/auth";
 import { logger } from "@/app/lib/logger";
 import { checkCsrf } from "@/app/lib/csrf";
+import { parseRequestJson } from "@/app/lib/parseRequestJson";
 import { passkeyStore } from "../passkeyStore";
 
 function getWebAuthnConfig(request: NextRequest) {
@@ -73,7 +74,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
+    const parsedBody = await parseRequestJson<{ id?: string; rawId?: string }>(request);
+    if (!parsedBody.ok) return parsedBody.response;
+    const body = parsedBody.body;
     const credentialId = body?.id ?? body?.rawId;
 
     if (!credentialId) {

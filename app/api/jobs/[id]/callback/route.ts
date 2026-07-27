@@ -9,6 +9,12 @@
  *   - In development (no secret configured) requests are accepted with a
  *     console warning so the backend can be tested locally without credentials.
  *
+ * Replay protection (required on every request, regardless of the above):
+ *   - X-Timestamp: Unix timestamp (seconds) the request was sent. Rejected
+ *     with 401 if more than 60 seconds away from the server's clock.
+ *   - X-Nonce: a UUID unique to this request. Rejected with 401 if it has
+ *     already been used within the last 2 minutes (cached in Redis/memory).
+ *
  * Request body (all fields except jobId optional for partial updates):
  * {
  *   "status":                    "queued" | "processing" | "complete" | "error",
@@ -23,8 +29,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jobStore, type JobStatus, type AiErrorCode } from "../../shared/jobStore";
 import { parseJsonRequest } from "../../shared/jsonBody";
+import { consumeNonce } from "../../shared/nonceCache";
 import { z } from "zod";
 import { logger } from "@/app/lib/logger";
+
+const TIMESTAMP_TOLERANCE_SECONDS = 60;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ─── Validation schema ────────────────────────────────────────────────────────
 
@@ -54,6 +64,10 @@ export async function POST(
   // ── Auth ───────────────────────────────────────────────────────────────────
   const authError = validateCallbackSecret(request);
   if (authError) return authError;
+
+  // ── Replay protection ──────────────────────────────────────────────────────
+  const replayError = await validateReplayProtection(request);
+  if (replayError) return replayError;
 
   // ── Params / store lookup ──────────────────────────────────────────────────
   const { id: jobId } = await context.params;
@@ -134,6 +148,47 @@ function validateCallbackSecret(request: NextRequest): NextResponse | null {
 
   if (token !== expectedSecret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  return null;
+}
+
+async function validateReplayProtection(
+  request: NextRequest
+): Promise<NextResponse | null> {
+  const timestampHeader = request.headers.get("x-timestamp");
+  const nonce = request.headers.get("x-nonce");
+
+  if (!timestampHeader || !nonce) {
+    return NextResponse.json(
+      { error: "Missing X-Timestamp or X-Nonce header" },
+      { status: 401 }
+    );
+  }
+
+  const timestamp = Number(timestampHeader);
+  if (!Number.isFinite(timestamp)) {
+    return NextResponse.json(
+      { error: "Invalid X-Timestamp header" },
+      { status: 401 }
+    );
+  }
+
+  const nowSeconds = Date.now() / 1000;
+  if (Math.abs(nowSeconds - timestamp) > TIMESTAMP_TOLERANCE_SECONDS) {
+    return NextResponse.json(
+      { error: "Request timestamp is outside the allowed window" },
+      { status: 401 }
+    );
+  }
+
+  if (!UUID_RE.test(nonce)) {
+    return NextResponse.json({ error: "Invalid X-Nonce header" }, { status: 401 });
+  }
+
+  const isNewNonce = await consumeNonce(nonce);
+  if (!isNewNonce) {
+    return NextResponse.json({ error: "Duplicate nonce" }, { status: 401 });
   }
 
   return null;

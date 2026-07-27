@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkCsrf } from "@/app/lib/csrf";
 import { applyRateLimit } from "@/app/lib/serverRateLimit";
 import { requireAuth } from "@/app/api/jobs/shared/authGuard";
+import { parseRequestJson } from "@/app/lib/parseRequestJson";
 import { dispatchJob } from "@/app/lib/aiBackend";
 import { logger } from "@/app/lib/logger";
 import { randomUUID } from "crypto";
@@ -78,12 +79,9 @@ export async function POST(request: NextRequest) {
   const { userId: authenticatedUserId } = authResult;
 
   // Parse body
-  let rawBody: unknown;
-  try {
-    rawBody = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
+  const parsedBody = await parseRequestJson(request);
+  if (!parsedBody.ok) return parsedBody.response;
+  const rawBody = parsedBody.body;
 
   const validation = validateBody(rawBody);
   if (!validation.valid) {
