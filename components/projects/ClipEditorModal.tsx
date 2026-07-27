@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { X, Crop, Type, MonitorPlay, Smartphone } from "lucide-react";
 import type { Clip } from "./ClipGrid";
 
@@ -57,7 +58,7 @@ export default function ClipEditorModal({ clip, onClose, onSave }: ClipEditorMod
             edits.aspectRatio === "9:16" ? "w-[240px] h-[426px]" : 
             edits.aspectRatio === "16:9" ? "w-[480px] h-[270px]" : "w-[300px] h-[300px]"
           }`}>
-            <img src={clip.thumbnail} alt={clip.title} className="w-full h-full object-cover opacity-50" />
+            <Image src={clip.thumbnail} alt={clip.title} fill className="object-cover opacity-50" />
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-white/50 font-medium">Preview Area</span>
             </div>
@@ -97,7 +98,7 @@ export default function ClipEditorModal({ clip, onClose, onSave }: ClipEditorMod
               <div className="pt-4 px-2">
                 <div className="h-12 bg-white/5 rounded-lg relative">
                   <div className="absolute top-0 bottom-0 left-0 right-0 overflow-hidden rounded-lg">
-                    <img src={clip.thumbnail} alt="" className="w-full h-full object-cover opacity-20" />
+                    <Image src={clip.thumbnail} alt="" fill className="object-cover opacity-20" />
                   </div>
                   {/* Pseudo range slider for mockup */}
                   <div className="absolute inset-y-0 left-0 w-1 bg-brand cursor-ew-resize" />

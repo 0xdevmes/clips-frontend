@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect, useState } from "react";
+import Image from "next/image";
 import { Check, Edit2, Play, Sparkles, BarChart3, Download, Loader2 } from "lucide-react";
 import analytics from "@/app/lib/analytics";
 
@@ -144,7 +145,7 @@ export default function ClipGrid({
           return (
             <div key={clip.id} className={`group relative rounded-2xl overflow-hidden transition-all duration-300 border-2 ${isSelected ? "border-brand shadow-[0_0_20px_rgba(var(--brand),0.3)]" : "border-transparent hover:border-white/20"}`}>
               <div className="aspect-[9/16] w-full bg-black relative cursor-pointer" onClick={() => onSelect(clip.id)} role="checkbox" aria-checked={isSelected} tabIndex={0} onKeyDown={(e) => handleKeyDown(e, clip.id)}>
-                <img src={clip.thumbnail} alt={clip.title} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                <Image src={clip.thumbnail} alt={clip.title} fill className="object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
                 <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
                   <div className={`px-2 py-1 rounded-md text-xs font-bold ${clip.scoreKey === 'high' ? 'bg-green-500/80 text-white' : clip.scoreKey === 'medium' ? 'bg-yellow-500/80 text-white' : 'bg-red-500/80 text-white'}`}>Score: {clip.score}</div>
@@ -167,10 +168,11 @@ export default function ClipGrid({
                 tabIndex={0}
                 onKeyDown={(e) => handleKeyDown(e, clip.id)}
               >
-                <img
+                <Image
                   src={clip.thumbnail}
                   alt={clip.title}
-                  className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                  fill
+                  className="object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                 />
 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />

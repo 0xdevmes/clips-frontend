@@ -29,7 +29,19 @@ function buildCsp(): string {
     "default-src": ["'self'"],
     "script-src": scriptSrc,
     "connect-src": connectSrc,
-    "img-src": ["'self'", "data:", "https://api.dicebear.com", "https://images.unsplash.com"],
+    "img-src": [
+      "'self'",
+      "data:",
+      "blob:",
+      "https://api.dicebear.com",
+      "https://images.unsplash.com",
+      "https://*.cloudfront.net",
+      "https://*.amazonaws.com",
+      "https://*.cloudflarestorage.com",
+      "https://cdn.clipcash.dev",
+      "https://lh3.googleusercontent.com",
+      "https://avatars.githubusercontent.com"
+    ],
     "style-src": ["'self'", "'unsafe-inline'"],
     "frame-ancestors": ["'none'"],
   };
@@ -74,6 +86,42 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.cloudfront.net',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.amazonaws.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.cloudflarestorage.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.clipcash.dev',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'avatars.githubusercontent.com',
         port: '',
         pathname: '/**',
       },
