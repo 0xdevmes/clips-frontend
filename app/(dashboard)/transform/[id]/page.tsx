@@ -19,6 +19,7 @@ import {
   Wand2,
   X,
 } from "lucide-react";
+import BackgroundOrbs from "@/components/layout/BackgroundOrbs";
 import { useTransformStore, selectJobById, selectTransformHasHydrated } from "@/app/store/transformStore";
 import { useTransformStatus } from "@/app/hooks/useTransformStatus";
 
@@ -243,9 +244,7 @@ export default function TransformProgressPage() {
 
     return (
       <div className="min-h-screen bg-background text-white flex flex-col font-sans relative overflow-hidden">
-        <div className="fixed inset-0 pointer-events-none">
-          <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-brand/5 blur-[120px] rounded-full" />
-        </div>
+        <BackgroundOrbs variant="default" />
 
         <main className="flex-1 flex flex-col items-center px-6 py-16 relative z-10">
           <div className="w-full max-w-4xl space-y-10">
@@ -312,10 +311,7 @@ export default function TransformProgressPage() {
   // ── Processing / Queued state (default) ────────────────────────────────────
   return (
     <div className="min-h-screen bg-background text-white flex flex-col font-sans relative overflow-hidden">
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-brand/5 blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-brand/[0.03] blur-[120px] rounded-full" />
-      </div>
+      <BackgroundOrbs variant="default" />
 
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-16 relative z-10">
         <div className="w-full max-w-3xl space-y-10">

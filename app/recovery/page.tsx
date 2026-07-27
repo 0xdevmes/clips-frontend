@@ -22,6 +22,7 @@ import {
   RefreshCw,
   Upload,
 } from "lucide-react";
+import BackgroundOrbs from "@/components/layout/BackgroundOrbs";
 
 export default function RecoveryPage() {
   const router = useRouter();
@@ -306,9 +307,7 @@ export default function RecoveryPage() {
 
   return (
     <div className="min-h-screen bg-[#030605] text-white flex flex-col font-sans relative overflow-hidden">
-      {/* Background glow effects */}
-      <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-brand/5 blur-[130px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-brand/[0.02] blur-[100px] rounded-full pointer-events-none" />
+      <BackgroundOrbs variant="subtle" />
 
       {/* Navigation Header */}
       <header className="p-6 border-b border-white/5 bg-[#050807]/30 backdrop-blur-md flex items-center justify-between relative z-10">
