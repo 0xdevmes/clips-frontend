@@ -116,9 +116,12 @@ function sendToSentry(level: LogLevel, args: any[]) {
     const error = args.find((arg) => arg instanceof Error);
     if (error) {
       Sentry.captureException(error);
+    } else {
+      Sentry.captureMessage(message, { level: "error" });
     }
     Sentry.addBreadcrumb({ message, level: "error" });
   } else if (level === "warn") {
+    Sentry.captureMessage(message, { level: "warning" });
     Sentry.addBreadcrumb({ message, level: "warning" });
   } else {
     Sentry.addBreadcrumb({ message, level: "info" });
@@ -137,27 +140,37 @@ export const logger = {
   },
   info: (...args: any[]) => {
     const entry = createLogEntry("info", args);
+    if (drainUrl) {
+      drain(entry);
+    }
     if (isProduction) {
       sendToSentry("info", args);
-      drain(entry);
     } else {
       consoleFallback("info", args);
     }
   },
   warn: (...args: any[]) => {
     const entry = createLogEntry("warn", args);
+    if (drainUrl) {
+      drain(entry);
+    }
     if (isProduction) {
       sendToSentry("warn", args);
-      drain(entry);
     } else {
       consoleFallback("warn", args);
     }
   },
   error: (...args: any[]) => {
     const entry = createLogEntry("error", args);
+    const error = args.find((arg) => arg instanceof Error);
+    if (error) {
+      Sentry.captureException(error);
+    }
+    if (drainUrl) {
+      drain(entry);
+    }
     if (isProduction) {
       sendToSentry("error", args);
-      drain(entry);
     } else {
       consoleFallback("error", args);
     }
