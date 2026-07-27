@@ -1,11 +1,7 @@
 "use client";
 
-import React from "react";
-import { Eye, PenLine, Check, Star } from "lucide-react";
-import { sanitize } from "@/app/lib/sanitize";
-import Skeleton from "@/components/ui/Skeleton";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+import React, { useRef, useEffect } from "react";
+import { Check, Edit2, Play, Sparkles } from "lucide-react";
 
 export interface Clip {
   id: string;
@@ -41,143 +37,13 @@ export interface ClipGridProps {
   hasMore: boolean;
 }
 
-// ─── Score colour ─────────────────────────────────────────────────────────────
-
-function scoreColour(key: string): string {
-  switch (key) {
-    case "high":
-      return "text-green-400 bg-green-400/10";
-    case "medium":
-      return "text-yellow-400 bg-yellow-400/10";
-    case "low":
-    default:
-      return "text-red-400 bg-red-400/10";
-  }
-}
-
-// ─── Clip card ────────────────────────────────────────────────────────────────
-
-function ClipCard({
-  clip,
-  isSelected,
-  isRecommended,
-  showRecommendation,
-  onSelect,
-  onEdit,
-  onPreview,
-}: {
-  clip: Clip;
-  isSelected: boolean;
-  isRecommended: boolean;
-  showRecommendation: boolean;
-  onSelect: (id: string) => void;
-  onEdit: (id: string) => void;
-  onPreview: (id: string) => void;
-}) {
-  const safeTitle = sanitize(clip.title);
-
-  return (
-    <article
-      className={[
-        "relative group rounded-2xl border overflow-hidden cursor-pointer",
-        "bg-surface transition-all duration-200",
-        isSelected
-          ? "border-brand ring-1 ring-brand/30 shadow-[0_0_16px_rgba(0,255,133,0.08)]"
-          : "border-white/5 hover:border-white/15",
-        showRecommendation && isRecommended && !isSelected
-          ? "border-brand/30"
-          : "",
-      ].join(" ")}
-      onClick={() => onSelect(clip.id)}
-      aria-pressed={isSelected}
-      aria-label={`${safeTitle}${isSelected ? ", selected" : ""}`}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === " " || e.key === "Enter") onSelect(clip.id);
-      }}
-    >
-      {/* Thumbnail */}
-      <div className="relative aspect-[9/16] bg-input overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={clip.thumbnail}
-          alt={safeTitle}
-          className="w-full h-full object-cover"
-          loading="lazy"
-        />
-
-        {/* Selection overlay */}
-        {isSelected && (
-          <div className="absolute inset-0 bg-brand/10 flex items-center justify-center">
-            <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center shadow-lg">
-              <Check className="w-4 h-4 text-black" aria-hidden="true" />
-            </div>
-          </div>
-        )}
-
-        {/* Recommendation badge */}
-        {showRecommendation && isRecommended && (
-          <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand/20 border border-brand/30 backdrop-blur-sm">
-            <Star className="w-2.5 h-2.5 text-brand" aria-hidden="true" />
-            <span className="text-[9px] font-bold text-brand">AI Pick</span>
-          </div>
-        )}
-
-        {/* Duration */}
-        <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded-md bg-black/70 text-[10px] font-bold text-white">
-          {clip.duration}
-        </div>
-
-        {/* Hover actions */}
-        <div className="absolute inset-0 flex items-end justify-center pb-3 gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            onClick={(e) => { e.stopPropagation(); onPreview(clip.id); }}
-            className="p-2 rounded-full bg-black/70 text-white hover:bg-brand hover:text-black transition-colors"
-            aria-label={`Preview ${safeTitle}`}
-          >
-            <Eye className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onEdit(clip.id); }}
-            className="p-2 rounded-full bg-black/70 text-white hover:bg-brand hover:text-black transition-colors"
-            aria-label={`Edit ${safeTitle}`}
-          >
-            <PenLine className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Info */}
-      <div className="px-3 py-2.5">
-        <p className="text-xs font-semibold text-white truncate">{safeTitle}</p>
-        <div className="flex items-center justify-between mt-1">
-          <span className="text-[10px] text-muted-foreground">{sanitize(clip.style)}</span>
-          <span
-            className={[
-              "text-[10px] font-bold px-1.5 py-0.5 rounded-full",
-              scoreColour(clip.scoreKey),
-            ].join(" ")}
-          >
-            {clip.score}
-          </span>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-// ─── Main component ───────────────────────────────────────────────────────────
-
-/**
- * Grid of clip cards with selection, AI recommendations, and pagination.
- */
 export default function ClipGrid({
   clips,
   selectedIds,
   onSelect,
   onSelectAll,
   onSelectNone,
+  onSelectByScore,
   aiRecommendations,
   recommendedIds,
   recommendationThreshold,
@@ -191,20 +57,40 @@ export default function ClipGrid({
   onLoadMore,
   hasMore,
 }: ClipGridProps) {
-  const selectedSet = new Set(selectedIds);
-  const allSelected = clips.length > 0 && clips.every((c) => selectedSet.has(c.id));
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!hasMore || loadingNextPage) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          onLoadMore();
+        }
+      },
+      { rootMargin: "100px" }
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, loadingNextPage, onLoadMore]);
+
+  // Handle keyboard interaction for grid items
+  const handleKeyDown = (e: React.KeyboardEvent, id: string) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onSelect(id);
+    }
+  };
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-        {Array.from({ length: 10 }).map((_, i) => (
-          <div key={i} className="rounded-2xl overflow-hidden border border-white/5">
-            <Skeleton className="aspect-[9/16] w-full" />
-            <div className="p-3 space-y-2">
-              <Skeleton className="h-3 w-3/4" />
-              <Skeleton className="h-2.5 w-1/2" />
-            </div>
-          </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={`skeleton-${i}`} className="animate-pulse bg-white/5 rounded-2xl aspect-[9/16] w-full" />
         ))}
       </div>
     );
@@ -212,95 +98,154 @@ export default function ClipGrid({
 
   if (clips.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
-        <p className="text-muted-foreground text-sm">No clips match your filters.</p>
-        <button
-          onClick={onSelectNone}
-          className="text-xs text-brand hover:underline"
-        >
-          Reset filters
-        </button>
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
+          <Sparkles className="w-8 h-8 text-muted-foreground" />
+        </div>
+        <h3 className="text-xl font-bold text-white mb-2">No clips found</h3>
+        <p className="text-muted-foreground max-w-sm">
+          Try adjusting your filters or upload new videos to generate more clips.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+    <div className="space-y-6">
+      {/* Grid Header Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white/5 p-4 rounded-2xl">
+        <div className="flex items-center gap-3">
           <button
-            onClick={allSelected ? onSelectNone : onSelectAll}
-            className="text-xs font-bold text-brand hover:underline"
+            onClick={selectedIds.length === clips.length ? onSelectNone : onSelectAll}
+            className="text-sm font-medium text-white hover:text-brand transition-colors"
           >
-            {allSelected ? "Deselect all" : "Select all"}
+            {selectedIds.length === clips.length ? "Deselect All" : "Select All"}
           </button>
-          <span className="text-muted-foreground text-xs">·</span>
-          <span className="text-xs text-muted-foreground">
-            {totalClips} clip{totalClips !== 1 ? "s" : ""}
+          <span className="text-white/20">|</span>
+          <span className="text-sm text-muted-foreground">
+            {selectedIds.length} of {totalClips} selected
           </span>
         </div>
-
-        <div className="flex items-center gap-2">
+        
+        <div className="flex items-center gap-3">
           <button
             onClick={onToggleRecommendations}
-            className={[
-              "flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors",
-              aiRecommendations
-                ? "bg-brand/10 border-brand/30 text-brand"
-                : "border-white/10 text-muted-foreground hover:border-white/20 hover:text-white",
-            ].join(" ")}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              aiRecommendations ? "bg-brand/20 text-brand" : "bg-white/5 text-muted-foreground hover:bg-white/10"
+            }`}
           >
-            <Star className="w-3 h-3" aria-hidden="true" />
-            AI Picks
+            <Sparkles className="w-4 h-4" />
+            AI Recommendations
           </button>
-          {aiRecommendations && recommendedIds.length > 0 && (
+          {aiRecommendations && (
             <button
               onClick={onAutoSelect}
-              className="text-xs text-brand hover:underline"
+              className="text-sm font-medium text-brand hover:text-brand-hover transition-colors"
             >
-              Auto-select {recommendedIds.length} ≥ {recommendationThreshold}
+              Select Top Clips
             </button>
           )}
         </div>
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-        {clips.map((clip) => (
-          <ClipCard
-            key={clip.id}
-            clip={clip}
-            isSelected={selectedSet.has(clip.id)}
-            isRecommended={recommendedIds.includes(clip.id)}
-            showRecommendation={aiRecommendations}
-            onSelect={onSelect}
-            onEdit={onEdit}
-            onPreview={onPreview}
-          />
-        ))}
-        {/* Loading skeleton cards for next page */}
-        {loadingNextPage &&
-          Array.from({ length: 4 }).map((_, i) => (
-            <div key={`loading-${i}`} className="rounded-2xl overflow-hidden border border-white/5">
-              <Skeleton className="aspect-[9/16] w-full" />
-              <div className="p-3 space-y-2">
-                <Skeleton className="h-3 w-3/4" />
-                <Skeleton className="h-2.5 w-1/2" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {clips.map((clip) => {
+          const isSelected = selectedIds.includes(clip.id);
+          const isRecommended = aiRecommendations && clip.score >= recommendationThreshold;
+
+          return (
+            <div
+              key={clip.id}
+              className={`group relative rounded-2xl overflow-hidden transition-all duration-300 border-2 ${
+                isSelected ? "border-brand shadow-[0_0_20px_rgba(var(--brand),0.3)]" : "border-transparent hover:border-white/20"
+              }`}
+            >
+              {/* Thumbnail Area */}
+              <div 
+                className="aspect-[9/16] w-full bg-black relative cursor-pointer"
+                onClick={() => onSelect(clip.id)}
+                role="checkbox"
+                aria-checked={isSelected}
+                tabIndex={0}
+                onKeyDown={(e) => handleKeyDown(e, clip.id)}
+              >
+                <img
+                  src={clip.thumbnail}
+                  alt={clip.title}
+                  className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                />
+                
+                {/* Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
+
+                {/* Badges */}
+                <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
+                  <div className={`px-2 py-1 rounded-md text-xs font-bold ${
+                    clip.scoreKey === 'high' ? 'bg-green-500/80 text-white' : 
+                    clip.scoreKey === 'medium' ? 'bg-yellow-500/80 text-white' : 
+                    'bg-red-500/80 text-white'
+                  }`}>
+                    Score: {clip.score}
+                  </div>
+                  {isRecommended && (
+                    <div className="bg-brand text-black px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1 shadow-lg animate-pulse">
+                      <Sparkles className="w-3 h-3" />
+                      Top Pick
+                    </div>
+                  )}
+                </div>
+
+                {/* Selection Checkbox */}
+                <div className={`absolute top-3 right-3 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                  isSelected ? "bg-brand border-brand" : "border-white/50 bg-black/50 group-hover:border-white"
+                } ${isRecommended ? "top-10" : ""}`}>
+                  {isSelected && <Check className="w-4 h-4 text-black" />}
+                </div>
+
+                {/* Clip Info */}
+                <div className="absolute bottom-3 left-3 right-3">
+                  <h4 className="text-white font-bold text-sm mb-1 line-clamp-2">{clip.title}</h4>
+                  <div className="flex items-center gap-2 text-xs text-white/70">
+                    <span>{clip.duration}</span>
+                    <span>•</span>
+                    <span>{clip.resolution}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Bar */}
+              <div className="absolute bottom-0 left-0 right-0 p-3 bg-black/90 translate-y-full group-hover:translate-y-0 transition-transform flex items-center justify-center gap-2 backdrop-blur-md">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onPreview(clip.id); }}
+                  className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                  aria-label="Preview clip"
+                >
+                  <Play className="w-4 h-4" />
+                  Preview
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onEdit(clip.id); }}
+                  className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                  aria-label="Edit clip"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  Edit
+                </button>
               </div>
             </div>
-          ))}
+          );
+        })}
       </div>
 
-      {/* Load more */}
-      {hasMore && !loadingNextPage && (
-        <div className="flex justify-center pt-4">
-          <button
-            onClick={onLoadMore}
-            className="px-6 py-2.5 rounded-xl border border-white/10 text-sm font-bold text-white hover:bg-white/5 transition-colors"
-          >
-            Load more
-          </button>
+      {/* Loading More Indicator */}
+      {(hasMore || loadingNextPage) && (
+        <div ref={loadMoreRef} className="py-8 flex justify-center">
+          {loadingNextPage ? (
+            <div className="w-8 h-8 border-4 border-brand border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <div className="w-8 h-8" />
+          )}
         </div>
       )}
     </div>

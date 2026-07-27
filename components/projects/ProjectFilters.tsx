@@ -1,9 +1,7 @@
 "use client";
 
 import React from "react";
-import { RotateCcw } from "lucide-react";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+import { Filter, RefreshCw } from "lucide-react";
 
 export interface ProjectFiltersProps {
   captionsStyle: string;
@@ -17,25 +15,18 @@ export interface ProjectFiltersProps {
   mobile?: boolean;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const STYLE_OPTIONS = ["All Styles", "Bold & Dynamic", "Minimalist", "Emoji-Rich", "Subtitles Only"];
+const STYLES = ["All Styles", "Bold & Dynamic", "Minimalist", "Emoji-Rich", "Subtitles Only"];
 const VIRALITY_LEVELS = [
-  { key: "high", label: "High", colour: "text-green-400" },
-  { key: "medium", label: "Medium", colour: "text-yellow-400" },
-  { key: "low", label: "Low", colour: "text-red-400" },
+  { id: "high", label: "High (>80)", color: "bg-green-500/20 text-green-500 border-green-500/30" },
+  { id: "medium", label: "Medium (50-80)", color: "bg-yellow-500/20 text-yellow-500 border-yellow-500/30" },
+  { id: "low", label: "Low (<50)", color: "bg-red-500/20 text-red-500 border-red-500/30" },
 ];
-const VAULT_FILTERS = [
-  { key: "pending", label: "Pending" },
-  { key: "listed", label: "Listed" },
-  { key: "history", label: "History" },
+const VAULT_STATUSES = [
+  { id: "pending", label: "Pending" },
+  { id: "listed", label: "Listed" },
+  { id: "history", label: "History" },
 ];
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
-/**
- * Project sidebar filters for clip style, virality, and vault status.
- */
 export default function ProjectFilters({
   captionsStyle,
   onCaptionsStyleChange,
@@ -45,91 +36,98 @@ export default function ProjectFilters({
   onResetFilters,
   vaultFilter,
   onVaultFilterChange,
+  mobile,
 }: ProjectFiltersProps) {
   return (
-    <nav
-      className="w-52 space-y-6"
-      aria-label="Clip filters"
-    >
+    <div className={`w-full ${!mobile ? "w-64 space-y-8" : "space-y-6"} flex flex-col`}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-xs font-extrabold text-white uppercase tracking-wider">Filters</span>
+        <div className="flex items-center gap-2">
+          <Filter className="w-5 h-5 text-white" />
+          <h2 className="text-lg font-bold text-white">Filters</h2>
+          {activeFilterCount > 0 && (
+            <span className="bg-brand text-black text-xs font-bold px-2 py-0.5 rounded-full">
+              {activeFilterCount}
+            </span>
+          )}
+        </div>
         {activeFilterCount > 0 && (
           <button
             onClick={onResetFilters}
-            className="flex items-center gap-1 text-[10px] font-bold text-brand hover:underline"
+            className="text-sm font-medium text-muted-foreground hover:text-white transition-colors flex items-center gap-1"
+            aria-label="Clear all filters"
           >
-            <RotateCcw className="w-2.5 h-2.5" />
-            Reset {activeFilterCount}
+            <RefreshCw className="w-3.5 h-3.5" />
+            Clear
           </button>
         )}
       </div>
 
-      {/* Vault status */}
-      <div className="space-y-2">
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-          Status
-        </p>
-        {VAULT_FILTERS.map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => onVaultFilterChange(key)}
-            className={[
-              "w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors",
-              vaultFilter === key
-                ? "bg-brand/10 text-brand border border-brand/20"
-                : "text-muted-foreground hover:text-white hover:bg-white/5",
-            ].join(" ")}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Caption style */}
-      <div className="space-y-2">
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-          Caption Style
-        </p>
+      {/* Style Filter */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider">Style</h3>
         <select
           value={captionsStyle}
           onChange={(e) => onCaptionsStyleChange(e.target.value)}
-          className={[
-            "w-full px-3 py-2 rounded-lg text-xs font-semibold",
-            "bg-input border border-white/10 text-white",
-            "focus:outline-none focus:ring-1 focus:ring-brand/40",
-          ].join(" ")}
-          aria-label="Filter by caption style"
+          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand/50 transition-all cursor-pointer"
         >
-          {STYLE_OPTIONS.map((s) => (
-            <option key={s} value={s}>{s}</option>
+          {STYLES.map((style) => (
+            <option key={style} value={style} className="bg-background text-white">
+              {style}
+            </option>
           ))}
         </select>
       </div>
 
-      {/* Virality */}
-      <div className="space-y-2">
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-          Virality Score
-        </p>
-        {VIRALITY_LEVELS.map(({ key, label, colour }) => (
-          <label
-            key={key}
-            className="flex items-center gap-2.5 cursor-pointer group"
-          >
-            <input
-              type="checkbox"
-              checked={viralityLevels.includes(key)}
-              onChange={() => onViralityLevelToggle(key)}
-              className="w-3.5 h-3.5 rounded accent-brand"
-              aria-label={`Include ${label} virality clips`}
-            />
-            <span className={`text-xs font-semibold ${colour} group-hover:opacity-100 opacity-80`}>
-              {label}
-            </span>
-          </label>
-        ))}
+      {/* Virality Score Filter */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider">Virality Score</h3>
+        <div className="flex flex-col gap-2">
+          {VIRALITY_LEVELS.map((level) => {
+            const isActive = viralityLevels.includes(level.id);
+            return (
+              <label
+                key={level.id}
+                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  isActive ? `bg-white/10 border-white/20` : "bg-transparent border-transparent hover:bg-white/5"
+                }`}
+              >
+                <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
+                  isActive ? "bg-brand border-brand" : "bg-black/50 border-white/20"
+                }`}>
+                  {isActive && <div className="w-2.5 h-2.5 bg-black rounded-sm" />}
+                </div>
+                <div className={`text-sm font-medium px-2 py-1 rounded-md border ${level.color}`}>
+                  {level.label}
+                </div>
+              </label>
+            );
+          })}
+        </div>
       </div>
-    </nav>
+
+      {/* Vault Status Filter */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider">Vault Status</h3>
+        <div className="flex flex-wrap gap-2">
+          {VAULT_STATUSES.map((status) => {
+            const isActive = vaultFilter === status.id;
+            return (
+              <button
+                key={status.id}
+                onClick={() => onVaultFilterChange(status.id)}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                  isActive
+                    ? "bg-brand text-black shadow-[0_0_15px_rgba(var(--brand),0.3)]"
+                    : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                {status.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
