@@ -20,7 +20,10 @@ export interface Clip {
   resolution: string;
   videoUrl: string;
   createdAt: string;
-  scoreBreakdown?: ScoreBreakdown;
+  /** Set by a soft delete. Excluded from every read path once present. */
+  deletedAt?: string | null;
+  /** Set by archiving. Surfaced only under the "Archived" filter. */
+  archivedAt?: string | null;
 }
 
 class ClipsStore {
@@ -49,12 +52,17 @@ class ClipsStore {
     }));
   }
 
-  // Gets clips for a specific user, seeding them if they don't exist yet
-  getClipsForUser(userId: string): Clip[] {
-    const userClips = this.clips.filter(c => c.userId === userId);
-    
+  /**
+   * Gets a user's clips, seeding them if they don't exist yet.
+   *
+   * Soft-deleted clips are never returned — callers that need them (a restore
+   * flow, or a purge job) must go through `getDeletedClipsForUser`.
+   */
+  getClipsForUser(userId: string, options: { includeArchived?: boolean } = {}): Clip[] {
+    const existing = this.clips.filter(c => c.userId === userId);
+
     // If no clips exist for this user, duplicate the seed pool for them
-    if (userClips.length === 0) {
+    if (existing.length === 0) {
       const newClips = this.clips.filter(c => c.userId === "default").map((c, idx) => ({
         ...c,
         id: `${userId}-clip-${idx}`,
@@ -63,10 +71,28 @@ class ClipsStore {
       this.clips.push(...newClips);
       return newClips;
     }
-    
-    return userClips;
+
+    return existing.filter(clip => {
+      if (clip.deletedAt) return false;
+      // Archived clips are hidden from the default library, the Vault, and
+      // Analytics; only the Archived filter asks for them.
+      if (clip.archivedAt && !options.includeArchived) return false;
+      return true;
+    });
   }
-  
+
+  /** Archived clips only — backs the "Archived" tab. */
+  getArchivedClipsForUser(userId: string): Clip[] {
+    return this.clips.filter(
+      c => c.userId === userId && !c.deletedAt && Boolean(c.archivedAt),
+    );
+  }
+
+  /** Soft-deleted clips, for restore or purge flows. */
+  getDeletedClipsForUser(userId: string): Clip[] {
+    return this.clips.filter(c => c.userId === userId && Boolean(c.deletedAt));
+  }
+
   updateClipStatus(userId: string, clipIds: string[], status: string) {
     let updatedCount = 0;
     this.clips = this.clips.map(clip => {
@@ -77,6 +103,91 @@ class ClipsStore {
       return clip;
     });
     return updatedCount;
+  }
+
+  /**
+   * Soft-deletes clips by stamping `deletedAt`. Already-deleted clips are
+   * skipped so a repeated request does not move the timestamp, which would
+   * restart the retention window.
+   */
+  softDeleteClips(userId: string, clipIds: string[]): number {
+    const deletedAt = new Date().toISOString();
+    let deletedCount = 0;
+
+    this.clips = this.clips.map(clip => {
+      if (clip.userId === userId && clipIds.includes(clip.id) && !clip.deletedAt) {
+        deletedCount++;
+        return { ...clip, deletedAt };
+      }
+      return clip;
+    });
+
+    return deletedCount;
+  }
+
+  /** Permanently drops soft-deleted clips — used by the retention job. */
+  purgeDeletedClips(olderThan: Date): number {
+    const cutoff = olderThan.getTime();
+    const before = this.clips.length;
+
+    this.clips = this.clips.filter(clip => {
+      if (!clip.deletedAt) return true;
+      return new Date(clip.deletedAt).getTime() > cutoff;
+    });
+
+    return before - this.clips.length;
+  }
+
+  /** Archives clips by stamping `archivedAt`; deleted clips are untouched. */
+  archiveClips(userId: string, clipIds: string[]): number {
+    const archivedAt = new Date().toISOString();
+    let archivedCount = 0;
+
+    this.clips = this.clips.map(clip => {
+      if (
+        clip.userId === userId &&
+        clipIds.includes(clip.id) &&
+        !clip.deletedAt &&
+        !clip.archivedAt
+      ) {
+        archivedCount++;
+        return { ...clip, archivedAt };
+      }
+      return clip;
+    });
+
+    return archivedCount;
+  }
+
+  /** Clears `archivedAt`, returning clips to the main library. */
+  unarchiveClips(userId: string, clipIds: string[]): number {
+    let restoredCount = 0;
+
+    this.clips = this.clips.map(clip => {
+      if (
+        clip.userId === userId &&
+        clipIds.includes(clip.id) &&
+        !clip.deletedAt &&
+        clip.archivedAt
+      ) {
+        restoredCount++;
+        return { ...clip, archivedAt: null };
+      }
+      return clip;
+    });
+
+    return restoredCount;
+  }
+
+  /**
+   * Ownership check used by the mutating routes. Returns the ids that do not
+   * belong to the user, so the caller can 403 before mutating anything.
+   */
+  findUnownedClipIds(userId: string, clipIds: string[]): string[] {
+    const owned = new Set(
+      this.clips.filter(c => c.userId === userId).map(c => c.id),
+    );
+    return clipIds.filter(id => !owned.has(id));
   }
 }
 

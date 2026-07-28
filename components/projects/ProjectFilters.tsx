@@ -25,6 +25,9 @@ const VAULT_STATUSES = [
   { id: "pending", label: "Pending" },
   { id: "listed", label: "Listed" },
   { id: "history", label: "History" },
+  // "archived" is a lifecycle state rather than a clip status — the API
+  // resolves it against `archivedAt` instead of filtering on `status`.
+  { id: "archived", label: "Archived" },
 ];
 
 export default function ProjectFilters({

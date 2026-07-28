@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Copy, Download, Link2, Share2, Sparkles, Undo2, Redo2 } from "lucide-react";
+import { Archive, Download, Share2, Sparkles, Trash2, Undo2, Redo2 } from "lucide-react";
 
 export interface SelectionFooterProps {
   count: number;
@@ -15,6 +15,12 @@ export interface SelectionFooterProps {
   onPost?: (selectedIds: string[], platforms: string[]) => void;
   isPosting?: boolean;
   postError?: string | null;
+  onDelete?: (selectedIds: string[]) => void;
+  isDeleting?: boolean;
+  deleteError?: string | null;
+  onArchive?: (selectedIds: string[]) => void;
+  isArchiving?: boolean;
+  archiveError?: string | null;
 }
 
 const PLATFORMS = ["youtube", "instagram", "tiktok", "twitter"];
@@ -31,9 +37,16 @@ export default function SelectionFooter({
   onPost,
   isPosting,
   postError,
+  onDelete,
+  isDeleting,
+  deleteError,
+  onArchive,
+  isArchiving,
+  archiveError,
 }: SelectionFooterProps) {
   const [showPlatformPicker, setShowPlatformPicker] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handlePostConfirm = () => {
     if (onPost && selectedPlatforms.length > 0) {
@@ -41,6 +54,13 @@ export default function SelectionFooter({
       setShowPlatformPicker(false);
     }
   };
+
+  const handleDeleteConfirm = () => {
+    onDelete?.(selectedIds);
+    setShowDeleteConfirm(false);
+  };
+
+  const clipNoun = count === 1 ? "clip" : "clips";
 
   if (count === 0) return null;
 
@@ -91,6 +111,38 @@ export default function SelectionFooter({
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Export</span>
           </button>
+          {onArchive && (
+            <button
+              onClick={() => onArchive(selectedIds)}
+              disabled={isArchiving}
+              className="flex-1 sm:flex-none px-4 py-2 rounded-xl text-sm font-medium text-white hover:bg-white/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isArchiving ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Archive className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline">
+                {isArchiving ? "Archiving..." : "Archive"}
+              </span>
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={isDeleting}
+              className="flex-1 sm:flex-none px-4 py-2 rounded-xl text-sm font-medium text-error hover:bg-error/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isDeleting ? (
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline">
+                {isDeleting ? "Deleting..." : "Delete"}
+              </span>
+            </button>
+          )}
           <button
             onClick={() => setShowPlatformPicker(true)}
             disabled={isPosting}
@@ -113,6 +165,51 @@ export default function SelectionFooter({
           </button>
         </div>
       </div>
+      {archiveError && (
+        <p className="text-error text-xs mt-2 text-center" role="alert">
+          {archiveError}
+        </p>
+      )}
+
+      {/* Delete confirmation — deletion is not undoable from the UI, so it is
+          always gated behind an explicit confirm. */}
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-clips-title"
+            className="relative bg-surface border border-white/10 rounded-2xl p-6 w-full max-w-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="delete-clips-title" className="text-lg font-bold text-white mb-2">
+              Delete {count} {clipNoun}?
+            </h3>
+            <p className="text-sm text-muted mb-6">This cannot be undone.</p>
+            {deleteError && <p className="text-error text-xs mb-3">{deleteError}</p>}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 px-4 py-2 rounded-xl border border-white/10 text-white text-sm font-medium hover:bg-white/5"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 rounded-xl bg-error text-white text-sm font-bold hover:opacity-90 disabled:opacity-50"
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Platform picker modal */}
       {showPlatformPicker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowPlatformPicker(false)}>

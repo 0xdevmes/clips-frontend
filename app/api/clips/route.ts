@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/lib/auth";
 import { clipsStore } from "./clipsStore";
 import type { ApiResponse } from "../types";
-import { getClipsQuerySchema } from "../schemas/index";
+import { getClipsQuerySchema, bulkClipIdsBodySchema } from "../schemas/index";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -30,11 +30,15 @@ export async function GET(request: NextRequest) {
 
   const { page, pageSize, status, style, virality } = queryValidation.data;
 
-  // 1. Fetch user's clips
-  let userClips = clipsStore.getClipsForUser(session.user.id);
+  // 1. Fetch user's clips. "archived" is a lifecycle state, not a clip status,
+  //    so it selects a different set rather than filtering the default one.
+  let userClips =
+    status === "archived"
+      ? clipsStore.getArchivedClipsForUser(session.user.id)
+      : clipsStore.getClipsForUser(session.user.id);
 
   // 2. Filter
-  if (status && status !== "all") {
+  if (status && status !== "all" && status !== "archived") {
     userClips = userClips.filter(c => c.status === status);
   }
   
@@ -59,6 +63,58 @@ export async function GET(request: NextRequest) {
       total
     },
     error: null
+  };
+
+  return NextResponse.json(body);
+}
+
+/**
+ * DELETE /api/clips
+ * Body: { clipIds: string[] }
+ *
+ * Soft-deletes clips by stamping `deletedAt`. Deleted clips drop out of every
+ * read path immediately — library, Vault, and Analytics all read through
+ * `getClipsForUser` — while the row is retained for the recovery window.
+ */
+export async function DELETE(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let payload: unknown;
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const parsed = bulkClipIdsBodySchema.safeParse(payload);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Validation failed", issues: parsed.error.issues },
+      { status: 400 },
+    );
+  }
+
+  const { clipIds } = parsed.data;
+
+  // Seed the user's clips so ownership resolves on a first-time request.
+  clipsStore.getClipsForUser(session.user.id);
+
+  const unowned = clipsStore.findUnownedClipIds(session.user.id, clipIds);
+  if (unowned.length > 0) {
+    return NextResponse.json(
+      { error: "One or more clips do not belong to you" },
+      { status: 403 },
+    );
+  }
+
+  const deletedCount = clipsStore.softDeleteClips(session.user.id, clipIds);
+
+  const body: ApiResponse<{ success: boolean; deletedCount: number }> = {
+    data: { success: true, deletedCount },
+    error: null,
   };
 
   return NextResponse.json(body);
