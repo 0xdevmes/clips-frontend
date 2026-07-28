@@ -69,7 +69,6 @@ const mockNFTs: Record<string, NFTData[]> = {
 
 export default function NFTGrid({ filter, loading }: NFTGridProps) {
   const handleCardAction = (id: string) => {
-    console.log(`Action triggered for NFT ${id}`);
     // Implement actual action logic (mint, list, view, etc.)
   };
 

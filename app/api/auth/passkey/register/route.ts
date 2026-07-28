@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
       attestationType: "none",
       excludeCredentials: existingCreds.map((cred) => ({
         id: cred.credentialId,
+        // WebAuthn transports types are incomplete - use as any
         transports: cred.transports as any,
       })),
       authenticatorSelection: {

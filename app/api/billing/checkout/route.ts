@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
     try {
       // Dynamic import of Stripe to handle optional runtime dependency
       const Stripe = (await import("stripe")).default;
+      // Stripe types don't accept string literal for apiVersion - use as any
       const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" as any });
 
       const priceId =

@@ -18,6 +18,22 @@ const eslintConfig = defineConfig([
   ]),
   ...storybook.configs["flat/recommended"],
   {
+    // Security-sensitive rules
+    rules: {
+      "no-console": ["warn", { allow: ["warn", "error"] }],
+      "no-eval": "error",
+      "react/no-danger": "error",
+      "@typescript-eslint/no-explicit-any": "error",
+    },
+  },
+  {
+    // Exclude test files from no-console
+    files: ["**/*.test.{ts,tsx,js,jsx}", "**/*.spec.{ts,tsx,js,jsx}", "**/__tests__/**", "**/__mocks__/**"],
+    rules: {
+      "no-console": "off",
+    },
+  },
+  {
     files: ["app/**/*.ts", "app/**/*.tsx"],
     rules: {
       "no-magic-numbers": ["warn", {

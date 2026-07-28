@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
       where: { email: session.user.email || "" },
       data: {
         onboardingStep: step,
+        // Onboarding data types are dynamic - use as any
         onboardingData: data as any,
       },
     });

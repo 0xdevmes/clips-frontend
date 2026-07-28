@@ -391,6 +391,7 @@ export const buildBatchTransaction = async (
   const server = getStellarServer();
 
   // Load source account (verifies it exists and fetches sequence number)
+  // Stellar SDK types are incomplete for Account type
   let sourceAccount: any;
   try {
     sourceAccount = await server.loadAccount(senderPublicKey);
@@ -466,6 +467,7 @@ export async function buildSorobanTransaction(
   const horizonServer = getStellarServer();
 
   // Load source account
+  // Stellar SDK types are incomplete for Account type
   let sourceAccount: any;
   try {
     sourceAccount = await horizonServer.loadAccount(senderPublicKey);
@@ -502,6 +504,7 @@ export async function buildSorobanTransaction(
   // Simulate the transaction to get Soroban transaction data
   const simulated = await sorobanServer.simulateTransaction(unsignedTx);
 
+  // Stellar SDK Soroban types are incomplete - use as any for simulation result
   if ((simulated as any).status === "ERROR") {
     throw new Error(`Simulation failed: ${JSON.stringify((simulated as any).error)}`);
   }

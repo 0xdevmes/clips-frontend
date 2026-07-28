@@ -63,10 +63,8 @@ export default function VaultPage() {
       }
       
       const result = await submitRes.json();
-      console.log("Minting successful:", result);
       return result;
     } catch (error) {
-      console.error("Mint error:", error);
       throw error;
     }
   };
