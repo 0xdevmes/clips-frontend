@@ -8,7 +8,11 @@ npx lint-staged
 # shallow clone) rather than failing the commit.
 BASE_BRANCH="${CHANGESET_BASE_BRANCH:-main}"
 if git rev-parse --verify "origin/$BASE_BRANCH" >/dev/null 2>&1; then
-  CHANGESET_COUNT=$(git diff --name-only "origin/$BASE_BRANCH"...HEAD 2>/dev/null | grep -c '^\.changeset/.*\.md$')
+  # `grep -c` exits 1 when it counts zero matches, which aborts this hook under
+  # husky's `set -e` — the exact case this reminder exists for. Fall back to 0
+  # so the block stays advisory, as documented above.
+  CHANGESET_COUNT=$(git diff --name-only "origin/$BASE_BRANCH"...HEAD 2>/dev/null | grep -c '^\.changeset/.*\.md$' || true)
+  CHANGESET_COUNT=${CHANGESET_COUNT:-0}
   if [ "$CHANGESET_COUNT" -eq 0 ]; then
     echo ""
     echo "No changeset found for this branch yet."

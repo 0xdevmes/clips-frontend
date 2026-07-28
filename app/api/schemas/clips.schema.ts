@@ -12,6 +12,17 @@ export const getClipsQuerySchema = z.object({
 });
 
 /**
+ * Request body for DELETE /api/clips (bulk soft delete) and
+ * PATCH /api/clips/archive (bulk archive/unarchive).
+ */
+export const bulkClipIdsBodySchema = z.object({
+  clipIds: z
+    .array(z.string().min(1))
+    .min(1, "At least one clip ID is required")
+    .max(100, "At most 100 clips can be modified in one request"),
+});
+
+/**
  * Request body for POST /api/clips/post (post clips to platforms)
  */
 export const postClipBodySchema = z.object({
@@ -37,6 +48,7 @@ export const createClipBodySchema = z.object({
 });
 
 export type GetClipsQuery = z.infer<typeof getClipsQuerySchema>;
+export type BulkClipIdsBody = z.infer<typeof bulkClipIdsBodySchema>;
 export type PostClipBody = z.infer<typeof postClipBodySchema>;
 export type MintClipBody = z.infer<typeof mintClipBodySchema>;
 export type CreateClipBody = z.infer<typeof createClipBodySchema>;

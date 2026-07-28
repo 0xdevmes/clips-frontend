@@ -65,6 +65,10 @@ export default function ProjectsPage() {
   const [loadingNextPage, setLoadingNextPage] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
 
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [aiRecommendations, setAiRecommendations] = useState(false);
@@ -254,7 +258,7 @@ export default function ProjectsPage() {
       if (!res.ok) throw new Error(data.error || "Posting failed");
       if (Array.isArray(data.failed) && data.failed.length > 0) {
         setPostError(`${data.failed.length} post${data.failed.length > 1 ? "s" : ""} failed`);
-        data.failed.forEach((f: any) => console.warn(f));
+        data.failed.forEach((f: unknown) => console.warn(f));
       }
       if (Array.isArray(data.posted) && data.posted.length > 0) {
         showToast(`Posted ${data.posted.length} clip${data.posted.length > 1 ? "s" : ""} successfully`, "success");
@@ -267,6 +271,58 @@ export default function ProjectsPage() {
       setIsPosting(false);
     }
   }, [showToast]);
+
+  const handleDelete = useCallback(async (clipIds: string[]) => {
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch("/api/clips", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clipIds }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Delete failed");
+
+      const count = data?.data?.deletedCount ?? clipIds.length;
+      showToast(`Deleted ${count} clip${count !== 1 ? "s" : ""}`, "success");
+      setSelectedIds([]);
+      // Deleted clips are filtered out server-side, so refetch rather than
+      // trying to reconcile the list locally.
+      await fetchClips(1);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Delete failed";
+      setDeleteError(msg);
+      showToast(msg, "error");
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [fetchClips, setSelectedIds, showToast]);
+
+  const handleArchive = useCallback(async (clipIds: string[]) => {
+    setIsArchiving(true);
+    setArchiveError(null);
+    try {
+      const res = await fetch("/api/clips/archive", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clipIds }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Archive failed");
+
+      const count = data?.data?.archivedCount ?? clipIds.length;
+      showToast(`Archived ${count} clip${count !== 1 ? "s" : ""}`, "success");
+      setSelectedIds([]);
+      await fetchClips(1);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Archive failed";
+      setArchiveError(msg);
+      showToast(msg, "error");
+    } finally {
+      setIsArchiving(false);
+    }
+  }, [fetchClips, setSelectedIds, showToast]);
 
   return (
     <>
@@ -357,6 +413,12 @@ export default function ProjectsPage() {
               onPost={handlePost}
               isPosting={isPosting}
               postError={postError}
+              onDelete={handleDelete}
+              isDeleting={isDeleting}
+              deleteError={deleteError}
+              onArchive={handleArchive}
+              isArchiving={isArchiving}
+              archiveError={archiveError}
             />
           </div>
         </div>

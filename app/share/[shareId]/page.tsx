@@ -1,38 +1,96 @@
 import React from "react";
-import Image from "next/image";
+import type { Metadata } from "next";
 import Link from "next/link";
 import BackgroundOrbs from "@/components/layout/BackgroundOrbs";
 
-// In a real implementation, this would validate the shareId against your database
-// For now, we'll accept any shareId format
-export async function generateMetadata({ params }: { params: { shareId: string } }) {
+/**
+ * Shape of a shared clip. Sourced from a mock today; the fetch below is the
+ * single place to swap in the real lookup.
+ */
+interface SharedClip {
+  title: string;
+  score: number;
+  thumbnail: string | null;
+  style: string | null;
+}
+
+/**
+ * In a real implementation this validates the shareId against the database,
+ * checks expiry, and returns null when revoked. Returning null makes the page
+ * fall back to generic branding rather than leaking a placeholder title.
+ */
+async function getSharedClip(shareId: string): Promise<SharedClip | null> {
+  if (!shareId) return null;
+
   return {
-    title: `Shared Clip - ClipCash`,
-    description: `Check out this shared clip on ClipCash`,
+    title: "Shared Clip",
+    score: 87,
+    thumbnail: null,
+    style: null,
+  };
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ shareId: string }>;
+}): Promise<Metadata> {
+  const { shareId } = await params;
+  const clip = await getSharedClip(shareId);
+
+  const title = clip ? `${clip.title} - ClipCash` : "Shared Clip - ClipCash";
+  const description = clip
+    ? `Virality score ${clip.score}/100. Watch this clip on ClipCash.`
+    : "Check out this shared clip on ClipCash";
+
+  // Point at the generator so the preview carries the clip's own title,
+  // score, and thumbnail rather than the site-wide banner.
+  const ogImage = new URL("/api/og", "https://clipcash.ai");
+  if (clip) {
+    ogImage.searchParams.set("title", clip.title);
+    ogImage.searchParams.set("score", String(clip.score));
+    if (clip.thumbnail) ogImage.searchParams.set("thumbnail", clip.thumbnail);
+    if (clip.style) ogImage.searchParams.set("style", clip.style);
+  }
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: `/share/${shareId}`,
+    },
     openGraph: {
-      title: `Shared Clip - ClipCash`,
-      description: `Check out this shared clip on ClipCash`,
+      title,
+      description,
       type: "video.other",
-      // In production, you'd set the actual video thumbnail URL here
-      images: ["/api/clips/placeholder/thumbnail"],
+      url: `/share/${shareId}`,
+      images: [
+        {
+          url: ogImage.toString(),
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
     },
     twitter: {
-      card: "player",
-      title: `Shared Clip - ClipCash`,
-      description: `Check out this shared clip on ClipCash`,
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage.toString()],
     },
   };
 }
 
-export default function SharePage({ params }: { params: { shareId: string } }) {
+export default async function SharePage({
+  params,
+}: {
+  params: Promise<{ shareId: string }>;
+}) {
+  const { shareId } = await params;
   // In a real implementation, you would:
-  // 1. Validate the shareId
-  // 2. Check expiration
-  // 3. Fetch the actual clip data
-  // 4. Check if revoked
-  
-  const shareUrl = typeof window !== 'undefined' ? window.location.href : `https://clipcash.ai/share/${params.shareId}`;
-  
+  const clip = await getSharedClip(shareId);
+
   return (
     <div className="min-h-screen bg-background text-white font-sans flex flex-col relative overflow-hidden">
       <BackgroundOrbs variant="subtle" />
@@ -72,15 +130,18 @@ export default function SharePage({ params }: { params: { shareId: string } }) {
             {/* Clip Info */}
             <div className="flex items-start justify-between">
               <div>
-                <h1 className="text-2xl font-bold mb-2">Shared Clip</h1>
-                <div className="flex items-center gap-4 text-sm text-muted">
-                  <span className="flex items-center gap-1">
-                    <svg className="w-4 h-4 text-brand" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M13 2.05v2.02c3.95.49 7 3.85 7 7.93 0 4.42-3.58 8-8 8s-8-3.58-8-8c0-4.08 3.05-7.44 7-7.93V2.05C6.1 2.56 2 7.25 2 12c0 5.52 4.48 10 10 10s10-4.48 10-10c0-4.75-4.1-9.44-9-9.95z" />
-                    </svg>
-                    Viral Score: 87/100
-                  </span>
-                </div>
+                <h1 className="text-2xl font-bold mb-2">{clip?.title ?? "Shared Clip"}</h1>
+                {clip ? (
+                  <div className="flex items-center gap-4 text-sm text-muted">
+                    <span className="flex items-center gap-1">
+                      <svg className="w-4 h-4 text-brand" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M13 2.05v2.02c3.95.49 7 3.85 7 7.93 0 4.42-3.58 8-8 8s-8-3.58-8-8c0-4.08 3.05-7.44 7-7.93V2.05C6.1 2.56 2 7.25 2 12c0 5.52 4.48 10 10 10s10-4.48 10-10c0-4.75-4.1-9.44-9-9.95z" />
+                      </svg>
+                      Viral Score: {clip.score}/100
+                    </span>
+                    {clip.style ? <span>{clip.style}</span> : null}
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
