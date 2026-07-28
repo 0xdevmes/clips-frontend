@@ -1,15 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-
-const PROTECTED_ROUTES = [
-  "/dashboard",
-  "/onboarding",
-  "/earnings",
-  "/projects",
-  "/vault",
-  "/platforms",
-  "/clips",
-];
+import { PROTECTED_ROUTES } from "@/app/lib/authRedirect";
 
 const AUTH_ROUTES = ["/login", "/signup"];
 

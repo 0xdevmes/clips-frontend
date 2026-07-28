@@ -8,6 +8,7 @@ import { useProcessStore, selectProcess, selectHasHydrated } from "@/app/store/p
 import { useProcessingStatus } from "@/app/hooks/useProcessingStatus";
 import { ProcessStatus } from "@/app/store/types";
 import BackgroundOrbs from "@/components/layout/BackgroundOrbs";
+import { sendNotification, notifyClipsReady } from "@/app/lib/notifications";
 
 function formatTimeRemaining(seconds: number | null): string {
   if (seconds === null) return "Calculating…";
@@ -37,19 +38,9 @@ export default function ProcessingPage() {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setNotificationSent(true);
 
-      // Send browser notification if permission granted
-      if ("Notification" in window && Notification.permission === "granted") {
-        const notification = new Notification("Your clips are ready!", {
-          body: `Found ${momentsFound} viral moments from your video`,
-          icon: "/avatar.png",
-          tag: "processing-complete",
-        });
-
-        notification.onclick = () => {
-          window.focus();
-          router.push("/projects");
-        };
-      }
+      // Call sendNotification from notifications.ts
+      sendNotification("Your clips are ready!");
+      notifyClipsReady(momentsFound, "/projects");
     }
   }, [status, notificationSent, momentsFound, router]);
 
@@ -232,7 +223,14 @@ export default function ProcessingPage() {
             </div>
 
             {/* Progress Bar Container */}
-            <div className="relative h-4 w-full bg-input rounded-full overflow-hidden border border-white/5">
+            <div
+              role="progressbar"
+              aria-valuenow={progress}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Processing progress"
+              className="relative h-4 w-full bg-input rounded-full overflow-hidden border border-white/5"
+            >
               <div
                 className="absolute top-0 left-0 h-full bg-brand rounded-full transition-all duration-[2000ms] ease-out shadow-[0_0_20px_rgba(0,255,133,0.4)]"
                 style={{ width: `${progress}%` }}
@@ -254,6 +252,11 @@ export default function ProcessingPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Off-screen live region to announce moments found updates to screen readers */}
+        <div className="sr-only" aria-live="polite" aria-atomic="true">
+          {momentsFound} moments found
         </div>
 
         {/* Stats Section */}
