@@ -11,7 +11,7 @@
     "test:e2e": "npx playwright test",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "prepare": "husky install",
+    "prepare": "husky",
     "changeset": "changeset",
     "analyze": "ANALYZE=true next build"
   },
