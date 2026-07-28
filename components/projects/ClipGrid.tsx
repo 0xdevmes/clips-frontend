@@ -4,6 +4,7 @@ import React, { useRef, useEffect, useState } from "react";
 import Image from "next/image";
 import { Check, Edit2, Play, Sparkles, BarChart3, Download, Loader2 } from "lucide-react";
 import analytics from "@/app/lib/analytics";
+import ScoreBreakdownTooltip, { ScoreBreakdown } from "./ScoreBreakdownTooltip";
 
 export interface Clip {
   id: string;
@@ -16,6 +17,7 @@ export interface Clip {
   status: string;
   resolution: string;
   videoUrl: string;
+  scoreBreakdown?: ScoreBreakdown;
 }
 
 export interface ClipGridProps {
@@ -147,8 +149,8 @@ export default function ClipGrid({
               <div className="aspect-[9/16] w-full bg-black relative cursor-pointer" onClick={() => onSelect(clip.id)} role="checkbox" aria-checked={isSelected} tabIndex={0} onKeyDown={(e) => handleKeyDown(e, clip.id)}>
                 <Image src={clip.thumbnail} alt={clip.title} fill className="object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
-                <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
-                  <div className={`px-2 py-1 rounded-md text-xs font-bold ${clip.scoreKey === 'high' ? 'bg-green-500/80 text-white' : clip.scoreKey === 'medium' ? 'bg-yellow-500/80 text-white' : 'bg-red-500/80 text-white'}`}>Score: {clip.score}</div>
+                <div className="absolute top-3 left-3 right-3 flex justify-between items-start z-10" onClick={(e) => e.stopPropagation()}>
+                  <ScoreBreakdownTooltip score={clip.score} scoreKey={clip.scoreKey} scoreBreakdown={clip.scoreBreakdown} />
                   {isRecommended && <div className="bg-brand text-black px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1 shadow-lg animate-pulse"><Sparkles className="w-3 h-3" /> Top Pick</div>}
                 </div>
                 <div className={`absolute top-3 right-3 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? "bg-brand border-brand" : "border-white/50 bg-black/50 group-hover:border-white"} ${isRecommended ? "top-10" : ""}`}>

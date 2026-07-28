@@ -46,11 +46,19 @@ const AI_ERROR_CODES: [AiErrorCode, ...AiErrorCode[]] = [
   "INTERNAL_ERROR",
 ];
 
+const ScoreBreakdownSchema = z.object({
+  hook: z.number().min(0).max(100),
+  retention: z.number().min(0).max(100),
+  emotional: z.number().min(0).max(100),
+  trending: z.number().min(0).max(100),
+});
+
 const CallbackBodySchema = z.object({
   status: z.enum(["queued", "processing", "complete", "error"]).optional(),
   progress: z.number().min(0).max(100).optional(),
   momentsFound: z.number().min(0).optional(),
   estimatedSecondsRemaining: z.number().min(0).optional(),
+  scoreBreakdown: ScoreBreakdownSchema.optional(),
   errorCode: z.enum(AI_ERROR_CODES).optional(),
   errorMessage: z.string().max(500).optional(),
 });
@@ -114,6 +122,7 @@ export async function POST(
     momentsFound: update.momentsFound ?? job.momentsFound,
     estimatedSecondsRemaining:
       update.estimatedSecondsRemaining ?? job.estimatedSecondsRemaining,
+    ...(update.scoreBreakdown ? { scoreBreakdown: update.scoreBreakdown } : {}),
     ...(update.errorCode ? { errorCode: update.errorCode } : {}),
     ...(update.errorMessage ? { errorMessage: update.errorMessage } : {}),
   });
