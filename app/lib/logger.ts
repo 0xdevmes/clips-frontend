@@ -21,12 +21,11 @@ const MAX_BATCH_DELAY_MS = 100;
 
 function getTraceId(): string | undefined {
   if (typeof window === "undefined") return undefined;
-  // @ts-ignore - custom request headers may be attached by runtime/infra
+  // Next.js may attach custom request headers to __NEXT_DATA__ at runtime
+  const nextData = (window as any).__NEXT_DATA__ as { headers?: Record<string, string> } | undefined;
   return (
-    // @ts-ignore
-    window.__NEXT_DATA?.headers?.["x-vercel-id"] ||
-    // @ts-ignore
-    window.__NEXT_DATA?.headers?.["x-request-id"] ||
+    nextData?.headers?.["x-vercel-id"] ||
+    nextData?.headers?.["x-request-id"] ||
     undefined
   );
 }

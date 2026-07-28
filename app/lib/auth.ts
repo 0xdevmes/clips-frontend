@@ -36,6 +36,9 @@ export const authOptions: NextAuthConfig = {
     }),
     Apple({
       clientId: process.env.APPLE_ID!,
+      // NextAuth Apple provider types expect a string, but the actual API requires
+      // an object with appleId, teamId, privateKey, and keyId. This is a known
+      // type limitation in next-auth/providers/apple.
       clientSecret: {
         appleId: process.env.APPLE_ID!,
         teamId: process.env.APPLE_TEAM_ID!,
