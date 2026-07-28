@@ -48,12 +48,12 @@ export const GridDefault: StoryObj = {
         recommendationThreshold={90}
         onToggleRecommendations={() => setAiRecommendations(!aiRecommendations)}
         onAutoSelect={() => setSelectedIds(mockClips.filter(c => c.score >= 90).map(c => c.id))}
-        onEdit={console.log}
-        onPreview={console.log}
+        onEdit={() => {}}
+        onPreview={() => {}}
         loading={false}
         totalClips={mockClips.length}
         loadingNextPage={false}
-        onLoadMore={console.log}
+        onLoadMore={() => {}}
         hasMore={false}
       />
     );

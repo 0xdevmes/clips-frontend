@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
       userVerification: "preferred",
       allowCredentials: credentials.map((cred) => ({
         id: cred.credentialId,
+        // WebAuthn transports types are incomplete - use as any
         transports: cred.transports as any,
       })),
     });
@@ -110,6 +111,7 @@ export async function POST(request: NextRequest) {
         id: credential.credentialId,
         publicKey: Buffer.from(credential.publicKey, "base64url"),
         counter: credential.counter,
+        // WebAuthn transports types are incomplete - use as any
         transports: credential.transports as any,
       },
     });

@@ -31,14 +31,17 @@ export async function POST(request: NextRequest) {
     if (event.type === "checkout.session.completed" || event.type === "customer.subscription.updated") {
       const sessionObj = event.data?.object ?? {};
       userEmail = sessionObj.customer_email || sessionObj.metadata?.userEmail;
+      // Stripe metadata types are unknown - use as any
       targetPlan = (sessionObj.metadata?.plan as any) || "pro";
     } else if (event.userEmail || event.email) {
       userEmail = event.userEmail || event.email;
+      // Custom webhook payload types are unknown - use as any
       targetPlan = (event.plan as any) || "pro";
     } else if (event.event === "payment_success" && event.userId) {
       const userById = await prisma.user.findUnique({ where: { id: event.userId } });
       if (userById) {
         userEmail = userById.email;
+        // Custom webhook payload types are unknown - use as any
         targetPlan = (event.plan as any) || "pro";
       }
     }

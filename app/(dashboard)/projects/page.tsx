@@ -191,7 +191,6 @@ export default function ProjectsPage() {
 
   const handleSaveEdits = useCallback((id: string, edits: ClipEdits) => {
     showToast(`Edits saved for clip ${id}`, "success");
-    console.log("Clip edits:", id, edits);
   }, [showToast]);
 
   const handlePreview = useCallback((id: string) => {
@@ -204,7 +203,6 @@ export default function ProjectsPage() {
     
     setIsMinting(true);
     try {
-      console.log(`Minting NFTs with IDs: ${selectedIds.join(", ")}`);
       const res = await fetch("/api/clips/mint", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
