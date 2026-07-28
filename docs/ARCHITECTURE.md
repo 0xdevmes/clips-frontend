@@ -10,6 +10,7 @@ This document explains the non-obvious design decisions in ClipCash. It is aimed
 2. [Wallet Architecture](#2-wallet-architecture)
 3. [Authentication Flow](#3-authentication-flow)
 4. [State Management](#4-state-management)
+5. [Client vs Server Boundaries](#5-client-vs-server-boundaries)
 
 ---
 
@@ -539,4 +540,85 @@ graph TD
     UserStore -->|profile, plan| Sidebar & DashboardHeader
 
     SSE[useProcessingStatus\nSSE → polling fallback] -->|update| ProcessStore
+```
+
+---
+
+## 5. Client vs Server Boundaries
+
+Next.js 13+ App Router uses the App Router model where components are server components by default. This enables better performance through server-side rendering and reduced client bundle sizes.
+
+### 5.1 When to Use "use client"
+
+The `"use client"` directive marks a component or module as client-side, meaning it will be rendered in the browser and can use:
+
+- React hooks (`useState`, `useEffect`, `useCallback`, etc.)
+- Browser APIs (`window`, `localStorage`, `navigator`, etc.)
+- Event handlers (`onClick`, `onChange`, etc.)
+- Next.js client-side hooks (`usePathname`, `useSearchParams`, `useRouter`)
+
+**Use cases for "use client":**
+- Interactive UI components (buttons, forms, modals)
+- Components that use browser storage (localStorage, sessionStorage)
+- Components that need to listen to browser events (resize, scroll, storage)
+- Context providers that manage client-side state
+- Hooks that use React hooks or browser APIs
+- Components that use third-party libraries requiring browser environment
+
+**Examples in this codebase:**
+- `app/context/NetworkContext.tsx` - Uses localStorage and window events
+- `app/components/AnalyticsProvider.tsx` - Uses usePathname and useSearchParams
+- `app/lib/notifications.ts` - Uses Notification API and localStorage
+- All hooks in `app/hooks/` - Use React hooks for state management
+- Dashboard pages - Interactive UI with state and event handlers
+
+### 5.2 When to Use "server-only"
+
+The `"server-only"` import marks a module as server-side only. If imported in a client component, Next.js will throw a build error. This prevents accidentally bundling server-only code in the client.
+
+**Use cases for "server-only":**
+- Modules that use Node.js-only APIs (fs, path, crypto, etc.)
+- Modules with sensitive server-side logic
+- Database access layers
+- Server-side utilities that should never run in the browser
+
+**Note:** This codebase currently does not have modules marked with `"server-only"` because most server-side code lives in API routes (which are inherently server-side) and utility modules are designed to work in both environments when possible.
+
+### 5.3 Best Practices
+
+**Default to server components:**
+- Start with server components for better performance
+- Only add `"use client"` when you need browser-specific features
+- Keep client components as small as possible and push logic to server components
+
+**Minimize client bundle:**
+- Avoid importing large libraries in client components unless necessary
+- Use dynamic imports for client-side only libraries
+- Keep utility functions server-side when possible
+
+**Type safety:**
+- TypeScript will help catch some issues, but runtime errors can still occur
+- Test both server and client rendering paths
+- Be aware of environment-specific APIs
+
+**Example pattern:**
+```typescript
+// ❌ Bad - entire component is client-side
+"use client";
+export default function Page() {
+  const [data, setData] = useState(null);
+  // ... lots of logic
+}
+
+// ✅ Better - split into server and client parts
+export default function Page() {
+  const data = await fetchData(); // Server-side
+  return <ClientComponent data={data} />;
+}
+
+"use client";
+function ClientComponent({ data }) {
+  const [state, setState] = useState(null);
+  // Only client-side logic here
+}
 ```

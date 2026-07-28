@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/lib/auth";
 import { clipsStore } from "./clipsStore";
 import type { ApiResponse } from "../types";
+import { getClipsQuerySchema } from "../schemas/index";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -10,13 +11,24 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  const page = parseInt(searchParams.get("page") || "1", 10);
-  const pageSize = parseInt(searchParams.get("pageSize") || "20", 10);
-  const status = searchParams.get("status") || "";
-  const style = searchParams.get("style") || "";
-  // Optional filters
-  const viralityParams = searchParams.getAll("virality");
-  const virality = viralityParams.length > 0 ? viralityParams : ["high", "medium", "low"];
+  
+  // Validate query parameters with Zod
+  const queryValidation = getClipsQuerySchema.safeParse({
+    page: searchParams.get("page"),
+    pageSize: searchParams.get("pageSize"),
+    status: searchParams.get("status"),
+    style: searchParams.get("style"),
+    virality: searchParams.getAll("virality"),
+  });
+
+  if (!queryValidation.success) {
+    return NextResponse.json(
+      { error: "Validation failed", issues: queryValidation.error.issues },
+      { status: 400 }
+    );
+  }
+
+  const { page, pageSize, status, style, virality } = queryValidation.data;
 
   // 1. Fetch user's clips
   let userClips = clipsStore.getClipsForUser(session.user.id);

@@ -1,12 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const ALLOWED_PLATFORMS = ["youtube", "instagram", "tiktok", "twitter"] as const;
-type Platform = (typeof ALLOWED_PLATFORMS)[number];
-
-interface PostClipRequest {
-  clipIds: string[];
-  platforms: string[];
-}
+import { postClipBodySchema } from "../../schemas/index";
 
 function mockUpload(platform: string, clipId: string): { ok: boolean; postId?: string; error?: string } {
   const success = Math.random() > 0.2; // 80% success rate for mock
@@ -17,25 +10,24 @@ function mockUpload(platform: string, clipId: string): { ok: boolean; postId?: s
 }
 
 export async function POST(req: NextRequest) {
-  const body: PostClipRequest = await req.json().catch(() => ({ clipIds: [], platforms: [] }));
+  const rawBody = await req.json().catch(() => ({}));
 
-  if (!Array.isArray(body.clipIds) || body.clipIds.length === 0) {
-    return NextResponse.json({ error: "clipIds must be a non-empty array" }, { status: 400 });
-  }
-  if (!Array.isArray(body.platforms) || body.platforms.length === 0) {
-    return NextResponse.json({ error: "platforms must be a non-empty array" }, { status: 400 });
+  // Validate request body with Zod
+  const bodyValidation = postClipBodySchema.safeParse(rawBody);
+  if (!bodyValidation.success) {
+    return NextResponse.json(
+      { error: "Validation failed", issues: bodyValidation.error.issues },
+      { status: 400 }
+    );
   }
 
-  const invalid = body.platforms.filter((p) => !ALLOWED_PLATFORMS.includes(p as Platform));
-  if (invalid.length > 0) {
-    return NextResponse.json({ error: `Invalid platforms: ${invalid.join(", ")}` }, { status: 400 });
-  }
+  const { clipIds, platforms } = bodyValidation.data;
 
   const posted: { clipId: string; platform: string; postId: string; url: string }[] = [];
   const failed: { clipId: string; platform: string; error: string }[] = [];
 
-  for (const clipId of body.clipIds) {
-    for (const platform of body.platforms) {
+  for (const clipId of clipIds) {
+    for (const platform of platforms) {
       const result = mockUpload(platform, clipId);
       if (result.ok && result.postId) {
         posted.push({

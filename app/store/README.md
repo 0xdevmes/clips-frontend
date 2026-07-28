@@ -35,3 +35,30 @@ Zustand stores for client-side state that's shared across components. All stores
 ## Other files
 - `api.ts` — re-exports API-related helpers used by the stores' `fetch*` actions.
 - `types.ts` — shared state/action interfaces for all stores above (no store logic).
+
+## API Barrel Pattern with Jest Mocking
+
+The `api.ts` file serves as a barrel export for API functions used by stores. In production, it re-exports real implementations from `../lib/apiClient.ts`. In test environments, Jest automatically uses the mock at `__mocks__/app/store/api.ts`.
+
+### How It Works
+
+1. **Production**: `app/store/api.ts` re-exports real API functions from `app/lib/apiClient.ts`
+2. **Tests**: Jest's automatic module resolution finds `__mocks__/app/store/api.ts` and uses it instead
+3. **No manual mocking needed**: Store tests simply import from `./api` and get mocks automatically
+
+### Example Usage in Tests
+
+```typescript
+// In a store test file
+import { fetchDashboardFromAPI } from "./api";
+
+// Jest automatically uses the mock from __mocks__/app/store/api.ts
+// No jest.mock() call needed
+```
+
+### Adding New API Functions
+
+When adding new API functions to `api.ts`:
+1. Add the export to `app/store/api.ts`
+2. Add a corresponding mock implementation to `__mocks__/app/store/api.ts`
+3. Ensure the mock returns deterministic, predictable data for testing
