@@ -6,69 +6,7 @@ import { parseRequestJson } from "@/app/lib/parseRequestJson";
 import { dispatchJob } from "@/app/lib/aiBackend";
 import { logger } from "@/app/lib/logger";
 import { randomUUID } from "crypto";
-import {
-  validateAnimeOptions,
-  DEFAULT_ANIME_OPTIONS,
-  type AnimeTransformOptions,
-} from "@/app/lib/animeTransform";
-
-// ─── Validation ───────────────────────────────────────────────────────────────
-
-/** Allowed transform styles sourced from env at startup, with a safe fallback. */
-const ALLOWED_STYLES: string[] = (() => {
-  const raw = process.env.NEXT_PUBLIC_TRANSFORM_STYLES ?? "anime,cinematic,sketch,watercolor";
-  return raw
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-})();
-
-interface TransformRequestBody {
-  clipId: string;
-  style: string;
-  userId?: string;
-  transformOptions?: AnimeTransformOptions;
-}
-
-function validateBody(
-  body: unknown,
-): { valid: true; data: TransformRequestBody } | { valid: false; error: string } {
-  if (!body || typeof body !== "object") {
-    return { valid: false, error: "Request body must be a JSON object." };
-  }
-  const b = body as Record<string, unknown>;
-
-  if (typeof b.clipId !== "string" || !b.clipId.trim()) {
-    return { valid: false, error: "clipId is required and must be a non-empty string." };
-  }
-  if (typeof b.style !== "string" || !ALLOWED_STYLES.includes(b.style.toLowerCase())) {
-    return {
-      valid: false,
-      error: `style must be one of: ${ALLOWED_STYLES.join(", ")}.`,
-    };
-  }
-
-  // Validate anime-specific options when style is "anime"
-  let transformOptions: AnimeTransformOptions | undefined;
-  if (b.style.toLowerCase() === "anime") {
-    const raw = b.transformOptions ?? DEFAULT_ANIME_OPTIONS;
-    const result = validateAnimeOptions(raw);
-    if (!result.valid) {
-      return { valid: false, error: result.errors.join(" ") };
-    }
-    transformOptions = result.data;
-  }
-
-  return {
-    valid: true,
-    data: {
-      clipId: b.clipId.trim(),
-      style: b.style.toLowerCase(),
-      userId: typeof b.userId === "string" ? b.userId : undefined,
-      transformOptions,
-    },
-  };
-}
+import { transformBodySchema } from "../schemas/index";
 
 // ─── POST /api/transform ──────────────────────────────────────────────────────
 
@@ -101,12 +39,16 @@ export async function POST(request: NextRequest) {
   if (!parsedBody.ok) return parsedBody.response;
   const rawBody = parsedBody.body;
 
-  const validation = validateBody(rawBody);
-  if (!validation.valid) {
-    return NextResponse.json({ error: validation.error }, { status: 400 });
+  // Validate request body with Zod
+  const bodyValidation = transformBodySchema.safeParse(rawBody);
+  if (!bodyValidation.success) {
+    return NextResponse.json(
+      { error: "Validation failed", issues: bodyValidation.error.issues },
+      { status: 400 }
+    );
   }
 
-  const { clipId, style } = validation.data;
+  const { clipId, style, transformOptions } = bodyValidation.data;
   const userId = authenticatedUserId;
 
   // Build job id and derive the source clip's storage key
@@ -131,7 +73,7 @@ export async function POST(request: NextRequest) {
     callbackUrl,
     transformStyle: style,
     sourceClipKey,
-    ...(validation.data.transformOptions ? { transformOptions: validation.data.transformOptions } : {}),
+    ...(transformOptions ? { transformOptions } : {}),
   });
 
   if (!dispatchResult.dispatched) {
