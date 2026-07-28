@@ -66,3 +66,38 @@ After configuring CSP headers, verify that no console violations appear when eac
 2. Set `NEXT_PUBLIC_ANALYTICS_PROVIDER=plausible` and verify Plausible events appear in the network tab with no CSP errors.
 3. Confirm that `cookie-consent` changes trigger and revoke analytics tracking without CSP violations.
 4. Run `tests/e2e/security-headers.spec.ts` to confirm headers are present on all responses.
+
+## Subresource Integrity (SRI) for analytics scripts
+
+Both analytics scripts in `app/lib/analytics.ts` are injected at runtime via
+`document.createElement('script')` (only after the user has granted
+analytics consent — see `checkConsent()`), and both now set
+`crossOrigin="anonymous"` unconditionally. An `integrity` attribute is
+applied *only* when the corresponding env var below is set, because pinning
+a hash to a script neither of these vendors serves via an immutable
+versioned URL carries a real availability risk: if the vendor updates the
+script and the configured hash goes stale, the browser refuses to execute
+it and tracking silently breaks until the hash is rotated.
+
+| Env var | Script | Notes |
+| --- | --- | --- |
+| `NEXT_PUBLIC_GA4_SCRIPT_SRI_HASH` | `googletagmanager.com/gtag/js` | **Not recommended.** Google explicitly does not support SRI for `gtag.js` — it's generated per measurement ID and can change without notice. Only set this if you've accepted that tracking can silently stop working on a Google-side change, and you're rotating the hash proactively. |
+| `NEXT_PUBLIC_PLAUSIBLE_SCRIPT_SRI_HASH` | `plausible.io/js/script.js` (or `NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL` if pinned to a mirrored/self-hosted copy) | Plausible's hosted script has no first-party versioned URL, so "pinning a version" in practice means pinning an SRI hash of a known-good snapshot and refreshing it deliberately (see below), or self-hosting a specific release. |
+
+### Computing/rotating a hash
+
+```bash
+curl -s https://plausible.io/js/script.js -o script.js
+openssl dgst -sha256 -binary script.js | openssl base64 -A
+# => prefix the output with "sha256-" and set it as
+#    NEXT_PUBLIC_PLAUSIBLE_SCRIPT_SRI_HASH
+```
+
+Re-run this whenever the vendor's script legitimately changes (e.g. after
+confirming a Plausible release note), then redeploy with the new hash.
+`node scripts/verify-script-sri.js` (wired into CI — see the PR description
+for the workflow snippet, since this token cannot push
+`.github/workflows/**` changes) re-downloads each *configured* script and
+fails if its hash no longer matches, so a silent vendor-side change is
+caught instead of quietly breaking analytics in production. A script with
+no `*_SCRIPT_SRI_HASH` set is skipped, not failed.

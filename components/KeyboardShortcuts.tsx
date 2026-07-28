@@ -3,7 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useKeyboardShortcuts, SHORTCUT_REGISTRY } from "@/app/hooks/useKeyboardShortcuts";
-import { X, Keyboard, Search, Upload, DollarSign, Folder, Lock, Command } from "lucide-react";
+import { useGlobalSearch } from "@/app/hooks/useGlobalSearch";
+import type { SearchResult, SearchResponse } from "@/app/api/search/route";
+import { sanitize } from "@/app/lib/sanitize";
+import { X, Keyboard, Search, Upload, DollarSign, Folder, Lock, Command, Film, Loader2 } from "lucide-react";
 
 export default function KeyboardShortcuts() {
   const router = useRouter();
@@ -21,6 +24,17 @@ export default function KeyboardShortcuts() {
   const filteredCommands = commandSearch
     ? commands.filter(cmd => cmd.label.toLowerCase().includes(commandSearch.toLowerCase()))
     : commands;
+
+  // Global search across clips/projects/earnings (issue #798) — runs
+  // alongside the static command filter above; results render in their own
+  // grouped section below the matched commands.
+  const { results: searchResults, loading: searchLoading } = useGlobalSearch(commandSearch);
+
+  const handleResultSelect = (result: SearchResult) => {
+    router.push(result.href);
+    setShowCommandPalette(false);
+    setCommandSearch("");
+  };
 
   useKeyboardShortcuts({
     onOpenSearch: () => {
@@ -148,11 +162,7 @@ export default function KeyboardShortcuts() {
             </div>
 
             <div className="max-h-[60vh] overflow-y-auto">
-              {filteredCommands.length === 0 ? (
-                <div className="p-8 text-center text-white/50">
-                  No commands found
-                </div>
-              ) : (
+              {filteredCommands.length > 0 && (
                 <div className="p-2">
                   {filteredCommands.map((command) => {
                     const Icon = command.icon;
@@ -173,6 +183,33 @@ export default function KeyboardShortcuts() {
                   })}
                 </div>
               )}
+
+              {commandSearch.trim() && (
+                <SearchResultsSection
+                  loading={searchLoading}
+                  results={searchResults}
+                  onSelect={handleResultSelect}
+                />
+              )}
+
+              {filteredCommands.length === 0 &&
+                commandSearch.trim() === "" && (
+                  <div className="p-8 text-center text-white/50">
+                    No commands found
+                  </div>
+                )}
+
+              {filteredCommands.length === 0 &&
+                commandSearch.trim() !== "" &&
+                !searchLoading &&
+                searchResults &&
+                searchResults.clips.length === 0 &&
+                searchResults.projects.length === 0 &&
+                searchResults.earnings.length === 0 && (
+                  <div className="p-8 text-center text-white/50">
+                    No results for &ldquo;{commandSearch}&rdquo;
+                  </div>
+                )}
             </div>
 
             <div className="p-3 border-t border-white/10 flex items-center justify-between text-xs text-white/50">
@@ -192,5 +229,61 @@ export default function KeyboardShortcuts() {
         </div>
       )}
     </>
+  );
+}
+
+// ─── Search results section (issue #798) ──────────────────────────────────────
+
+interface SearchResultsSectionProps {
+  loading: boolean;
+  results: SearchResponse | null;
+  onSelect: (result: SearchResult) => void;
+}
+
+function SearchResultsSection({ loading, results, onSelect }: SearchResultsSectionProps) {
+  if (loading && !results) {
+    return (
+      <div className="flex items-center justify-center gap-2 p-6 text-white/50 text-sm">
+        <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+        Searching…
+      </div>
+    );
+  }
+
+  if (!results) return null;
+
+  const groups: Array<{ label: string; items: SearchResult[] }> = [
+    { label: "Clips", items: results.clips },
+    { label: "Projects", items: results.projects },
+    { label: "Earnings", items: results.earnings },
+  ].filter((group) => group.items.length > 0);
+
+  if (groups.length === 0) return null;
+
+  return (
+    <div className="p-2 border-t border-white/10">
+      {groups.map((group) => (
+        <div key={group.label} className="mb-2 last:mb-0">
+          <div className="px-3 py-1 text-[11px] font-semibold text-white/40 uppercase tracking-wider">
+            {group.label}
+          </div>
+          {group.items.map((item) => (
+            <button
+              key={`${item.type}-${item.id}`}
+              onClick={() => onSelect(item)}
+              className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-left"
+            >
+              <Film className="w-4 h-4 text-white/50 shrink-0" aria-hidden="true" />
+              <span className="flex-1 min-w-0">
+                <span className="block text-white text-sm truncate">{sanitize(item.title)}</span>
+                {item.subtitle && (
+                  <span className="block text-white/40 text-xs truncate">{sanitize(item.subtitle)}</span>
+                )}
+              </span>
+            </button>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }

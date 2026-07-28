@@ -91,6 +91,22 @@ export function StyleCard({
         {isSelected && (
           <div className="absolute inset-0 ring-2 ring-inset ring-brand/50 rounded-t-2xl pointer-events-none" />
         )}
+
+        {/* Premium / New badges (issue #802) */}
+        {(style.isPremium || style.isNew) && (
+          <div className="absolute top-2 left-2 flex gap-1.5">
+            {style.isNew && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-brand text-black">
+                New
+              </span>
+            )}
+            {style.isPremium && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-black/60 text-white border border-white/20">
+                Premium
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Card body ── */}
