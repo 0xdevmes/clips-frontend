@@ -22,6 +22,12 @@ export interface Job {
   momentsFound: number;
   estimatedSecondsRemaining: number;
   createdAt: number;
+  scoreBreakdown?: {
+    hook: number;
+    retention: number;
+    emotional: number;
+    trending: number;
+  };
   /** Human-readable error message set by the AI backend on failure. */
   errorCode?: AiErrorCode;
   errorMessage?: string;
