@@ -116,5 +116,42 @@
     "sponsorship_desc": "El patrocinio de comisiones permite a la plataforma pagar las comisiones de transacci\u00f3n por ti, haciendo tus primeras transacciones gratuitas.",
     "sponsorship_activate": "Activar con Patrocinio",
     "activating": "Activando..."
+  },
+  "transform": {
+    "sub_style": "Subestilo",
+    "intensity": "Intensidad",
+    "outline": "Contorno",
+    "background": "Fondo",
+    "muted": "Atenuado",
+    "vivid": "Vívido",
+    "title": "Transformación de Estilo",
+    "select_style": "Seleccionar Estilo",
+    "anime": "Anime",
+    "shonen": "Shōnen",
+    "shojo": "Shōjo",
+    "chibi": "Chibi",
+    "mecha": "Mecha",
+    "ghibli": "Ghibli",
+    "thin": "Fino",
+    "medium": "Medio",
+    "bold": "Grueso",
+    "original": "Original",
+    "painted": "Pintado",
+    "cel_shaded": "Cel-shaded",
+    "failed_load": "Error al cargar estilos",
+    "try_again": "Intentar de nuevo",
+    "no_styles": "No hay estilos disponibles",
+    "no_styles_desc": "Aún no hay estilos de transformación configurados."
+  },
+  "notifications": {
+    "title": "Notificaciones",
+    "unread_count": "{count} sin leer",
+    "mark_as_read": "Marcar como leída",
+    "mark_all_read": "Marcar todas como leídas",
+    "no_notifications": "Sin notificaciones",
+    "job_complete": "¡Tus clips están listos!",
+    "transform_complete": "Transformación de estilo completada",
+    "mint_success": "NFT acuñado con éxito",
+    "earnings_received": "Ganancias recibidas"
   }
 }
